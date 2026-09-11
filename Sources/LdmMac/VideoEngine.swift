@@ -66,6 +66,25 @@ final class VideoEngine {
         return tail.isEmpty ? host : "\(host)/\(tail)"
     }
 
+    /// 在文件所在目录里找「同名前缀、不同扩展名」的最终产物（.mp3/.mp4/.mkv/...）
+    static func siblingOutput(for path: String) -> String? {
+        let dir = (path as NSString).deletingLastPathComponent
+        let base = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+        guard !dir.isEmpty, !base.isEmpty else { return nil }
+        let exts = ["mp3", "m4a", "mp4", "mkv", "webm", "opus", "aac", "flac", "wav"]
+        for e in exts {
+            let cand = (dir as NSString).appendingPathComponent("\(base).\(e)")
+            if FileManager.default.fileExists(atPath: cand) { return cand }
+        }
+        // 再宽松一点：目录里以该 base 开头的文件
+        if let items = try? FileManager.default.contentsOfDirectory(atPath: dir) {
+            if let hit = items.first(where: { $0.hasPrefix(base + ".") }) {
+                return (dir as NSString).appendingPathComponent(hit)
+            }
+        }
+        return nil
+    }
+
     /// 所有变动都在锁内完成，回调在锁外触发，避免死锁
     private func mutate(_ block: (inout [String: Job]) -> Void) {
         lock.lock()
@@ -197,6 +216,26 @@ final class VideoEngine {
         processes[id]?.terminate()
     }
 
+    /// 彻底删掉一条视频任务（**不只是终止进程**）：
+    /// 以前只调 cancel()，任务数据还留在引擎里，下一轮轮询又把它读回列表 ——
+    /// 用户看到的「清除已完成没用、列表里还在、通知再响一遍」就是这个原因。
+    func remove(_ id: String) {
+        processes[id]?.terminationHandler = nil
+        pipes[id]?.fileHandleForReading.readabilityHandler = nil
+        processes[id]?.terminate()
+        if let cookiePath = cookieFiles.removeValue(forKey: id) {
+            try? FileManager.default.removeItem(atPath: cookiePath)
+        }
+        processes.removeValue(forKey: id)
+        pipes.removeValue(forKey: id)
+        jobParams.removeValue(forKey: id)
+        lock.lock()
+        jobs.removeValue(forKey: id)
+        order.removeAll { $0 == id }
+        lock.unlock()
+        onUpdate?()
+    }
+
     func isRunning(_ id: String) -> Bool { processes[id]?.isRunning ?? false }
 
     // MARK: - 输出解析
@@ -204,7 +243,10 @@ final class VideoEngine {
     private static let percentRE = try! NSRegularExpression(
         pattern: #"^\[download\]\s+([0-9.]+)%\s+of\s+~?\s*([0-9.]+)([KMGT]?i?B)(?:\s+at\s+([0-9.]+|Unknown|N/A)\s*([KMGT]?i?B)?(/s)?)?(?:\s+ETA\s+([0-9:]+))?"#)
     private static let destRE = try! NSRegularExpression(pattern: #"^\[download\] Destination: (.+)$"#)
-    private static let mergeRE = try! NSRegularExpression(pattern: #"^\[Merger\] Merging formats into "(.+)"$"#)
+    private static let mergeRE = try! NSRegularExpression(pattern: #"^\[Merger\] Merging formats into "(.*)"$"#)
+    /// 转码/修正容器后的最终文件（仅音频模式的 mp3、VideoConvertor 的 mp4 等）：
+    /// 不认这行的话，输出路径会指向中间产物（如 .m4a），界面上就会说「文件未找到」
+    private static let convertRE = try! NSRegularExpression(pattern: #"^\[(?:ExtractAudio|VideoConvertor|FixupM3u8|FixupM4a|VideoRemuxer|Metadata)[^\]]*\] Destination: (.+)$"#)
     private static let titleRE = try! NSRegularExpression(pattern: #"^\[info\] .*: Downloading (?:1 video|1 audio|\d+ format)"#)
 
     private func parse(_ raw: String, id: String) {
@@ -261,10 +303,15 @@ final class VideoEngine {
             let path = line.replacingOccurrences(of: "[download] ", with: "")
                 .components(separatedBy: " has already been downloaded").first?
                 .trimmingCharacters(in: .whitespaces) ?? ""
+            // 只有「那个文件真的已经在磁盘上」才算完成；
+            // 仅音频模式下 yt-dlp 会跳过下载的中间文件继续转码，此时提前标完成会让界面骗人
+            let alreadyOnDisk = !path.isEmpty && FileManager.default.fileExists(atPath: path)
             mutate { jobs in
-                jobs[id]?.status = .complete
-                jobs[id]?.progress = 1
                 jobs[id]?.message = L("row.existing")
+                if alreadyOnDisk {
+                    jobs[id]?.status = .complete
+                    jobs[id]?.progress = 1
+                }
                 let placeholder = L("video.parsingTitle")
                 let current = jobs[id]?.title ?? ""
                 if !path.isEmpty, current.isEmpty || current == placeholder {
@@ -282,6 +329,19 @@ final class VideoEngine {
         }
 
         if let m = VideoEngine.destRE.firstMatch(in: line, range: range) {
+            let path = ns.substring(with: m.range(at: 1))
+            mutate { jobs in
+                jobs[id]?.outputPath = path
+                let placeholder = L("video.parsingTitle")
+                if (jobs[id]?.title ?? "").isEmpty || (jobs[id]?.title ?? "") == placeholder {
+                    jobs[id]?.title = (path as NSString).lastPathComponent
+                }
+            }
+            return
+        }
+
+        // 转码后的最终文件（仅音频模式 mp3 等），以这行为准覆盖掉中间产物的路径
+        if let m = VideoEngine.convertRE.firstMatch(in: line, range: range) {
             let path = ns.substring(with: m.range(at: 1))
             mutate { jobs in
                 jobs[id]?.outputPath = path
@@ -336,7 +396,19 @@ final class VideoEngine {
                             job.doneBytes = size
                         }
                     } else if let path = job.outputPath {
-                        job.message = L("video.doneMissing")
+                        // 兜底：有的模式下最终文件名和中间产物不同名（如 .m4a → .mp3），
+                        // 在同一个目录里按同名前缀找一下，别让界面显示「文件未找到」
+                        if let fixed = Self.siblingOutput(for: path) {
+                            job.outputPath = fixed
+                            if let attrs = try? FileManager.default.attributesOfItem(atPath: fixed),
+                               let size = attrs[.size] as? Int64 {
+                                job.totalBytes = size
+                                job.doneBytes = size
+                            }
+                            job.title = (fixed as NSString).lastPathComponent
+                        } else {
+                            job.message = L("video.doneMissing")
+                        }
                         _ = path
                     }
                 } else {

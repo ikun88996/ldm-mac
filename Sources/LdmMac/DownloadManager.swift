@@ -44,6 +44,12 @@ final class DownloadManager: ObservableObject {
     private var retriedTaskIDs: Set<String> = []
     /// 手动覆盖任务状态（例如"下到的是网页"这种 aria2 认为成功、实际失败的情况）
     private var statusOverrides: [String: (TaskStatus, String)] = [:]
+    /// 已经播报过（提示音/气泡/系统通知）的任务 id —— 用它而不是「上一轮列表」来判断是否新完成：
+    /// 否则用户删掉一条已完成任务后，下一轮它若还在引擎里就会被当成「新完成」，通知再响一遍
+    private var announcedIDs: Set<String> = []
+    private var firstPoll = true
+    /// 引擎启动失败的自动重试计数（最多自动重试一次）
+    private var engineRetryCount = 0
 
     // MARK: - 生命周期
 
@@ -150,11 +156,19 @@ final class DownloadManager: ObservableObject {
             guard let self else { return }
             do {
                 try self.aria.start(downloadDir: dir, proxy: proxy, maxConnections: conn, maxConcurrent: conc)
+                self.engineRetryCount = 0
                 DispatchQueue.main.async { self.engineReady = true; self.engineError = nil }
             } catch {
                 DispatchQueue.main.async {
                     self.engineReady = false
                     self.engineError = L("toast.startEngine", error.localizedDescription)
+                }
+                // 起不来就自动再试一次（用户不用去点「重启引擎」）
+                if self.engineRetryCount < 1 {
+                    self.engineRetryCount += 1
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 4) { [weak self] in
+                        self?.startEngine()
+                    }
                 }
             }
         }
@@ -411,8 +425,10 @@ final class DownloadManager: ObservableObject {
             ariaOrder.removeAll { $0 == task.id }
             pollQueue.async { [weak self] in self?.aria.remove(task.id) }
         case .video:
-            video.cancel(task.id)
+            video.remove(task.id)     // 必须真的从视频引擎里删掉，只终止进程的话下一轮又画回来
         }
+        statusOverrides.removeValue(forKey: task.id)
+        retriedTaskIDs.remove(task.id)
         tasks.removeAll { $0.id == task.id }
     }
 
@@ -420,7 +436,10 @@ final class DownloadManager: ObservableObject {
     func resumeAll() { pollQueue.async { [weak self] in self?.aria.resumeAll() } }
 
     func clearFinished() {
-        tasks.filter { $0.isFinished }.forEach { remove($0) }
+        let finished = tasks.filter { $0.isFinished }
+        finished.forEach { remove($0) }
+        // 立刻按最新状态重画一次，别等下一轮轮询（否则那一瞬间看起来「点了没反应」）
+        poll()
     }
 
     func reveal(_ task: DownloadTask) {
@@ -512,8 +531,13 @@ final class DownloadManager: ObservableObject {
                 path: t.path, uri: t.uri, message: message))
         }
 
-        let previousFinished = Set(tasks.filter { $0.isFinished }.map { $0.id })
-        var newlyFinished = out.filter { $0.isFinished && !previousFinished.contains($0.id) }
+        // 首次轮询：把启动时就已结束的历史任务记为「已播报」，避免一开 App 就补一堆通知
+        if firstPoll {
+            firstPoll = false
+            announcedIDs.formUnion(out.filter { $0.isFinished }.map { $0.id })
+        }
+
+        var newlyFinished = out.filter { $0.isFinished && !announcedIDs.contains($0.id) }
 
         // 揪出「下到的其实是网页」的假成功（微博页面链接被跳转到访客登录页就是这么来的）
         let bogus = newlyFinished.filter { isBogusWebPage($0) }
@@ -558,9 +582,12 @@ final class DownloadManager: ObservableObject {
         }
 
         // 只有真正成功的才报「已完成」；失败的要明确报失败（以前失败也弹“已完成”，是 bug）
-        // 已经就地重试的任务不算失败，状态马上会变回「解析中…」
+        // 已经就地重试的任务不算失败（状态马上变回「解析中…」，等它真的下完再播报）
         let okFinished = newlyFinished.filter { $0.status == .complete }
         let failedFinished = newlyFinished.filter { $0.status == .error && !restartedIDs.contains($0.id) }
+
+        // 记入「已播报」，保证同一条任务一辈子只播报一次（删掉再画回来也不会重复响）
+        for t in newlyFinished where !restartedIDs.contains(t.id) { announcedIDs.insert(t.id) }
 
         if let first = okFinished.first {
             NSSound(named: "Glass")?.play()

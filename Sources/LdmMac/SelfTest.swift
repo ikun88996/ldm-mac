@@ -1,7 +1,7 @@
 import Foundation
 
 /// 无界面自检：用真实下载验证内核（aria2 多线程 / yt-dlp 视频解析）是否可用
-/// 用法：LdmMac --selftest <url> [--dir /tmp/xxx] [--conn 16] [--video] [--timeout 300]
+/// 用法：LdmMac --selftest <url> [--dir /tmp/xxx] [--conn 16] [--video] [--p1080|--audio] [--timeout 300]
 enum SelfTest {
     static var exitCode: Int32 = 0
 
@@ -15,6 +15,7 @@ enum SelfTest {
         var dir = (NSTemporaryDirectory() as NSString).appendingPathComponent("ldm-selftest")
         var conn = 16
         var video = false
+        var quality: VideoQuality = .best
         var timeout: Double = 300
 
         var i = 0
@@ -24,13 +25,15 @@ enum SelfTest {
             case "--conn":    i += 1; if i < args.count { conn = Int(args[i]) ?? 16 }
             case "--timeout": i += 1; if i < args.count { timeout = Double(args[i]) ?? 300 }
             case "--video":   video = true
+            case "--p1080":   video = true; quality = .p1080
+            case "--audio":   video = true; quality = .audioOnly
             default:          url = args[i]
             }
             i += 1
         }
 
         guard !url.isEmpty else {
-            print("用法：LdmMac --selftest <url> [--dir 路径] [--conn 16] [--video]")
+            print("用法：LdmMac --selftest <url> [--dir 路径] [--conn 16] [--video|--p1080|--audio]")
             exitCode = 2
             return
         }
@@ -39,10 +42,10 @@ enum SelfTest {
         print("== LDM Mac 自检 ==")
         print("目标: \(url)")
         print("目录: \(dir)")
-        print("模式: \(video ? "视频(yt-dlp)" : "多线程(aria2, \(conn) 线程)")")
+        print("模式: \(video ? "视频(yt-dlp, \(quality.rawValue))" : "多线程(aria2, \(conn) 线程)")")
 
         if video {
-            runVideo(url: url, dir: dir, timeout: timeout)
+            runVideo(url: url, dir: dir, timeout: timeout, quality: quality)
         } else {
             runFile(url: url, dir: dir, conn: conn, timeout: timeout)
         }
@@ -148,7 +151,7 @@ enum SelfTest {
 
     // MARK: yt-dlp 视频
 
-    private static func runVideo(url: String, dir: String, timeout: Double) {
+    private static func runVideo(url: String, dir: String, timeout: Double, quality: VideoQuality) {
         guard VideoEngine.findYtDlp() != nil else {
             print("❌ 未找到 yt-dlp")
             exitCode = 1
@@ -156,7 +159,7 @@ enum SelfTest {
         }
         let engine = VideoEngine()
         let proxy = ProcessInfo.processInfo.environment["LDM_TEST_PROXY"]
-        guard let id = engine.start(uri: url, downloadDir: dir, quality: .best, proxy: proxy) else {
+        guard let id = engine.start(uri: url, downloadDir: dir, quality: quality, proxy: proxy) else {
             print("❌ 无法启动 yt-dlp")
             exitCode = 1
             return

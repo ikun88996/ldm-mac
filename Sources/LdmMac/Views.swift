@@ -191,11 +191,12 @@ struct TaskRow: View {
 
                 Spacer(minLength: 8)
 
-                if task.canPause {
+                // 视频任务不支持暂停/继续（yt-dlp 没有可靠的中途暂停），别给用户一个点了只会弹提示的按钮
+                if task.kind == .file && task.canPause {
                     Button { dm.pause(task) } label: { Image(systemName: "pause.fill") }
                         .help(l10n.t("row.pause")).controlSize(.small)
                 }
-                if task.canResume {
+                if task.kind == .file && task.canResume {
                     Button { dm.resume(task) } label: { Image(systemName: "play.fill") }
                         .help(l10n.t("row.resume")).controlSize(.small)
                 }

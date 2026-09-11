@@ -65,7 +65,26 @@ final class AriaEngine {
 
     var isRunning: Bool { process?.isRunning ?? false }
 
+    /// 启动 aria2c 并等 RPC 就绪。偶尔会遇到端口被占/启动竞态导致起不来，
+    /// 这里自动换端口重试最多 3 次，避免用户遇到「引擎启动失败」就只能手动点重启。
     func start(downloadDir: String, proxy: String?, maxConnections: Int, maxConcurrent: Int) throws {
+        var lastDetail = ""
+        for _ in 1...3 {
+            do {
+                try startOnce(downloadDir: downloadDir, proxy: proxy,
+                              maxConnections: maxConnections, maxConcurrent: maxConcurrent)
+                return
+            } catch EngineError.aria2Missing {
+                throw EngineError.aria2Missing          // 缺依赖，重试没有意义
+            } catch {
+                lastDetail = (error as? EngineError)?.errorDescription ?? error.localizedDescription
+                Thread.sleep(forTimeInterval: 0.4)
+            }
+        }
+        throw EngineError.startFailed(lastDetail.isEmpty ? "RPC 端口无响应（已重试 3 次）" : lastDetail)
+    }
+
+    private func startOnce(downloadDir: String, proxy: String?, maxConnections: Int, maxConcurrent: Int) throws {
         stop()
         guard let bin = AriaEngine.findBinary(named: "aria2c") else { throw EngineError.aria2Missing }
 
