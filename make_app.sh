@@ -55,6 +55,11 @@ if [ -d "$EXT_SRC" ]; then
   rm -rf "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions"
   cp -R "$EXT_SRC" "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions"
   find "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions" -name ".DS_Store" -delete
+
+  # 兼容旧名字：1.0.1 时叫 LDM-Mac-Chrome-Extension，已有用户的浏览器扩展正是从
+  # 这个路径加载的，改名会让扩展失效。保留一份同内容副本，旧路径继续可用。
+  rm -rf "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
+  cp -R "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions" "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
 else
   echo "⚠️  未找到 $EXT_SRC，先跑 ./make_extension.sh 才能把扩展打进 App 包"
 fi
