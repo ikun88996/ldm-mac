@@ -13,7 +13,7 @@ final class VideoEngine {
         var totalBytes: Int64 = 0
         var speed: Int64 = 0
         var etaText: String = "--:--"
-        var message: String = "解析中…"
+        var message: String = ""
         var outputPath: String?
     }
 
@@ -51,6 +51,13 @@ final class VideoEngine {
 
     static func findYtDlp() -> String? { AriaEngine.findBinary(named: "yt-dlp") }
 
+    /// 把长链接缩成「域名/末段」，用于失败任务的可读标题
+    static func shortURL(_ url: String) -> String {
+        guard let u = URL(string: url), let host = u.host else { return url }
+        let tail = (u.path as NSString).lastPathComponent
+        return tail.isEmpty ? host : "\(host)/\(tail)"
+    }
+
     /// 所有变动都在锁内完成，回调在锁外触发，避免死锁
     private func mutate(_ block: (inout [String: Job]) -> Void) {
         lock.lock()
@@ -70,7 +77,7 @@ final class VideoEngine {
         guard let ytdlp = VideoEngine.findYtDlp() else { return nil }
 
         let id = UUID().uuidString
-        jobs[id] = Job(id: id, title: "解析中…", uri: uri, message: "正在解析视频信息…")
+        jobs[id] = Job(id: id, title: L("video.parsingTitle"), uri: uri, message: L("video.resolving"))
         order.append(id)
 
         var args = ["--newline", "--no-warnings", "--no-playlist", "--progress", "--progress-delta", "0.5",
@@ -151,7 +158,19 @@ final class VideoEngine {
         guard !line.isEmpty else { return }
 
         if line.hasPrefix("ERROR:") {
-            mutate { $0[id]?.status = .error; $0[id]?.message = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces) }
+            let msg = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            mutate { jobs in
+                jobs[id]?.status = .error
+                jobs[id]?.message = msg
+                jobs[id]?.speed = 0
+                // 失败时还没解析出标题，就用链接标识这个任务，别显示成「解析中…」
+                let placeholder = L("video.parsingTitle")
+                let current = jobs[id]?.title ?? ""
+                if current.isEmpty || current == placeholder {
+                    let link = jobs[id]?.uri ?? ""
+                    jobs[id]?.title = VideoEngine.shortURL(link)
+                }
+            }
             return
         }
         if line.hasPrefix("WARNING:") { return }
@@ -179,39 +198,49 @@ final class VideoEngine {
                 jobs[id]?.speed = speed
                 jobs[id]?.etaText = eta
                 jobs[id]?.status = .active
-                jobs[id]?.message = "下载中"
+                jobs[id]?.message = L("status.active")
             }
             return
         }
 
         if line.contains("has already been downloaded") {
+            let path = line.replacingOccurrences(of: "[download] ", with: "")
+                .components(separatedBy: " has already been downloaded").first?
+                .trimmingCharacters(in: .whitespaces) ?? ""
             mutate { jobs in
                 jobs[id]?.status = .complete
                 jobs[id]?.progress = 1
-                jobs[id]?.message = "文件已存在，已跳过"
+                jobs[id]?.message = L("row.existing")
+                let placeholder = L("video.parsingTitle")
+                let current = jobs[id]?.title ?? ""
+                if !path.isEmpty, current.isEmpty || current == placeholder {
+                    jobs[id]?.outputPath = path
+                    jobs[id]?.title = (path as NSString).lastPathComponent
+                }
             }
             return
         }
 
         if let m = VideoEngine.mergeRE.firstMatch(in: line, range: range) {
             let path = ns.substring(with: m.range(at: 1))
-            mutate { $0[id]?.outputPath = path; $0[id]?.message = "正在合并音视频…" }
+            mutate { $0[id]?.outputPath = path; $0[id]?.message = L("video.merging") }
             return
         }
 
         if let m = VideoEngine.destRE.firstMatch(in: line, range: range) {
             let path = ns.substring(with: m.range(at: 1))
-            mutate {
-                $0[id]?.outputPath = path
-                if let name = $0[id]?.title, name != "解析中…" { } else {
-                    $0[id]?.title = (path as NSString).lastPathComponent
+            mutate { jobs in
+                jobs[id]?.outputPath = path
+                let placeholder = L("video.parsingTitle")
+                if (jobs[id]?.title ?? "").isEmpty || (jobs[id]?.title ?? "") == placeholder {
+                    jobs[id]?.title = (path as NSString).lastPathComponent
                 }
             }
             return
         }
 
         if line.hasPrefix("[download]") && line.contains("100%") {
-            mutate { $0[id]?.progress = 1; $0[id]?.message = "下载完成，处理中…" }
+            mutate { $0[id]?.progress = 1; $0[id]?.message = L("video.finalizing") }
             return
         }
 
@@ -229,7 +258,7 @@ final class VideoEngine {
         }
 
         if line.contains("[ExtractAudio]") || line.contains("[VideoConvertor]") || line.contains("[FixupM3u8]") {
-            mutate { $0[id]?.message = "正在转换格式…"; $0[id]?.speed = 0 }
+            mutate { $0[id]?.message = L("video.converting"); $0[id]?.speed = 0 }
         }
     }
 
@@ -245,7 +274,7 @@ final class VideoEngine {
                     job.progress = 1
                     job.speed = 0
                     job.etaText = "--:--"
-                    job.message = "已完成"
+                    job.message = L("status.complete")
                     if let path = job.outputPath, FileManager.default.fileExists(atPath: path) {
                         if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
                            let size = attrs[.size] as? Int64 {
@@ -253,12 +282,12 @@ final class VideoEngine {
                             job.doneBytes = size
                         }
                     } else if let path = job.outputPath {
-                        job.message = "已完成（文件未找到，可能被移动）"
+                        job.message = L("video.doneMissing")
                         _ = path
                     }
                 } else {
                     job.status = .error
-                    job.message = "yt-dlp 退出码 \(code)（可能不支持该链接或网络受限）"
+                    job.message = L("video.exitCode", Int(code))
                 }
             }
             job.speed = 0

@@ -41,6 +41,8 @@ final class DownloadManager: ObservableObject {
     private var lastError: String = ""
     /// 已经因为「下到网页」而重试过的链接，避免死循环
     private var retriedURLs: Set<String> = []
+    /// 手动覆盖任务状态（例如"下到的是网页"这种 aria2 认为成功、实际失败的情况）
+    private var statusOverrides: [String: (TaskStatus, String)] = [:]
 
     // MARK: - 生命周期
 
@@ -258,8 +260,37 @@ final class DownloadManager: ObservableObject {
 
     static let videoHosts = ["youtube.com", "youtu.be", "bilibili.com", "b23.tv", "x.com", "twitter.com",
                              "tiktok.com", "douyin.com", "reddit.com", "vimeo.com", "twitch.tv",
-                             "instagram.com", "facebook.com", "weibo.com", "kuaishou.com", "v.qq.com",
-                             "youku.com", "iqiyi.com", "ixigua.com", "weibo.cn"]
+                             "instagram.com", "facebook.com", "weibo.com", "weibo.cn", "kuaishou.com",
+                             "v.qq.com", "youku.com", "iqiyi.com", "ixigua.com", "weibo.cn"]
+
+    /// 短链域名：这些地址本身不是视频页，但会 302 到视频页（微博的 t.cn 最常见）
+    static let shortLinkHosts = ["t.cn", "dwz.cn", "url.cn", "suo.im", "sourl.cn", "xhslink.com", "v.douyin.com"]
+
+    /// 微博的访客/登录跳转地址里带着真实目标：passport.weibo.com/visitor/visitor?...&url=<真实地址>
+    /// 返回解包后的真实地址；不是这种地址就返回 nil
+    static func unwrapVisitorLink(_ url: String) -> String? {
+        guard url.lowercased().contains("passport.weibo.com/visitor"),
+              let comps = URLComponents(string: url),
+              let inner = comps.queryItems?.first(where: { $0.name == "url" })?.value,
+              inner.lowercased().hasPrefix("http") else { return nil }
+        return inner
+    }
+
+    /// 从 yt-dlp 的报错文本里捞出被跳转后的真实地址
+    static func recoverTarget(fromErrorMessage message: String) -> String? {
+        guard let range = message.range(of: "passport.weibo.com/visitor") else { return nil }
+        let tail = String(message[range.lowerBound...])
+        guard let urlRange = tail.range(of: "url=") else { return nil }
+        let after = tail[urlRange.upperBound...]
+        let stop = after.firstIndex { $0 == "&" || $0 == " " || $0 == "\n" } ?? after.endIndex
+        let encoded = String(after[..<stop])
+        return encoded.removingPercentEncoding
+    }
+
+    static func isShortLink(_ url: String) -> Bool {
+        guard let host = URL(string: url)?.host?.lowercased() else { return false }
+        return shortLinkHosts.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
     /// 常见媒体后缀：扩展嗅探到的直链按多线程下载处理
     static let mediaExtensions = [".mp4", ".m4v", ".mov", ".mkv", ".webm", ".flv", ".ts", ".m3u8", ".mpd",
                                   ".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg",
@@ -288,8 +319,15 @@ final class DownloadManager: ObservableObject {
 
         try? FileManager.default.createDirectory(atPath: downloadDir, withIntermediateDirectories: true)
 
-        /// 视频页面（B站/YouTube/微博这类），而不是媒体直链
-        let isVideoPage = DownloadManager.looksLikeVideo(input) && !DownloadManager.looksLikeMedia(input)
+        // 微博的访客/登录跳转地址（从浏览器地址栏复制到的常见形态）里带着真实目标，先解包
+        if let inner = DownloadManager.unwrapVisitorLink(input) {
+            input = inner
+            if !quiet { showToast(L("toast.linkUnwrapped")) }
+        }
+
+        /// 视频页面（B站/YouTube/微博这类，含 t.cn 这种跳转到视频页的短链），而不是媒体直链
+        let isVideoPage = (DownloadManager.looksLikeVideo(input) || DownloadManager.isShortLink(input))
+            && !DownloadManager.looksLikeMedia(input)
 
         let useVideo: Bool
         switch mode {
@@ -451,19 +489,24 @@ final class DownloadManager: ObservableObject {
 
         for gid in gids {
             guard let t = byGid[gid] else { continue }
-            let status = mapStatus(t.status)
-            let name = t.path.isEmpty ? t.uri : (t.path as NSString).lastPathComponent
+            var status = mapStatus(t.status)
+            var name = t.path.isEmpty ? t.uri : (t.path as NSString).lastPathComponent
+            var message = status == .error ? (t.errorMessage.isEmpty ? "failed" : t.errorMessage) : status.label
+
+            if let override = statusOverrides[gid] {
+                status = override.0
+                message = override.1
+            }
             var eta = "--:--"
             if t.speed > 0, t.totalBytes > t.doneBytes {
                 eta = Fmt.eta(Int(Double(t.totalBytes - t.doneBytes) / Double(t.speed)))
             }
+            if name.isEmpty { name = t.uri }
             out.append(DownloadTask(
                 id: gid, name: name, kind: .file, status: status,
                 totalBytes: t.totalBytes, doneBytes: t.doneBytes, speed: t.speed,
                 connections: t.connections, etaText: eta,
-                path: t.path, uri: t.uri,
-                message: status == .error ? (t.errorMessage.isEmpty ? "failed" : t.errorMessage)
-                                          : status.label))
+                path: t.path, uri: t.uri, message: message))
         }
 
         let previousFinished = Set(tasks.filter { $0.isFinished }.map { $0.id })
@@ -471,23 +514,43 @@ final class DownloadManager: ObservableObject {
 
         // 揪出「下到的其实是网页」的假成功（微博页面链接被跳转到访客登录页就是这么来的）
         let bogus = newlyFinished.filter { isBogusWebPage($0) }
-        if !bogus.isEmpty {
-            newlyFinished.removeAll { t in bogus.contains { $0.id == t.id } }
+        let bogusIDs = Set(bogus.map { $0.id })
+        if !bogusIDs.isEmpty {
+            newlyFinished.removeAll { bogusIDs.contains($0.id) }
         }
 
         tasks = out
         globalSpeed = speed + videoJobs.filter { $0.status == .active }.reduce(0) { $0 + $1.speed }
 
+        // 网页兜底：删掉误下的文件，把任务标成失败但**留在列表里**（不再静默消失）
         for b in bogus { recoverFromWebPage(b) }
 
-        if let first = newlyFinished.first {
+        // 视频任务失败、但报错里带着被跳转后的真实地址（微博 t.cn 短链的典型情况）→ 自动用真实地址重试一次
+        for e in newlyFinished where e.kind == .video && e.status == .error {
+            guard let target = DownloadManager.recoverTarget(fromErrorMessage: e.message),
+                  target != e.uri, !retriedURLs.contains(target) else { continue }
+            retriedURLs.insert(target)
+            showToast(L("toast.linkRecovered"))
+            _ = add(target, mode: .video, quiet: true)
+        }
+
+        // 只有真正成功的才报「已完成」；失败的要明确报失败（以前失败也弹“已完成”，是 bug）
+        let okFinished = newlyFinished.filter { $0.status == .complete }
+        let failedFinished = newlyFinished.filter { $0.status == .error }
+
+        if let first = okFinished.first {
             NSSound(named: "Glass")?.play()
-            let extra = newlyFinished.count > 1 ? " " + L("toast.completedMany", newlyFinished.count) : ""
+            let extra = okFinished.count > 1 ? " " + L("toast.completedMany", okFinished.count) : ""
             showToast(L("toast.completed", first.name) + extra)
 
             if notifyOnComplete {
                 Notifier.shared.notify(title: L("notify.title"),
                                        body: L("notify.body", first.name, Fmt.bytes(first.totalBytes)))
+            }
+        } else if let firstFail = failedFinished.first {
+            showToast(L("toast.failed", firstFail.name))
+            if notifyOnComplete {
+                Notifier.shared.notify(title: L("notify.failedTitle"), body: firstFail.name)
             }
         }
     }
@@ -509,12 +572,14 @@ final class DownloadManager: ObservableObject {
         return head.contains("<!doctype html") || head.contains("<html")
     }
 
-    /// 删掉误下的网页文件，能识别的就改用 yt-dlp 重试
+    /// 删掉误下的网页文件，把任务标成失败留在列表里；能识别的就改用 yt-dlp 重试
     private func recoverFromWebPage(_ task: DownloadTask) {
         if !task.path.isEmpty { try? FileManager.default.removeItem(atPath: task.path) }
-        remove(task)
 
-        if DownloadManager.looksLikeVideo(task.uri), !retriedURLs.contains(task.uri) {
+        let canRetry = DownloadManager.looksLikeVideo(task.uri) && !retriedURLs.contains(task.uri)
+        statusOverrides[task.id] = (.error, canRetry ? L("toast.pageRetryVideo") : L("toast.pageNotFile"))
+
+        if canRetry {
             retriedURLs.insert(task.uri)
             showToast(L("toast.pageRetryVideo"))
             _ = add(task.uri, mode: .video, quiet: true)

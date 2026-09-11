@@ -14,7 +14,7 @@ const path = require("path");
 
 const EXT = path.resolve(__dirname, "../build/extensions/chrome");
 if (!fs.existsSync(path.join(EXT, "content.js"))) {
-  console.log("请先构建扩展：VERSION=1.0.3 ./make_extension.sh");
+  console.log("请先构建扩展：VERSION=1.0.4 ./make_extension.sh");
   process.exit(0);
 }
 const JSDOM_PATH = process.env.JSDOM_PATH || "/tmp/ldm-ext-test/node_modules";
