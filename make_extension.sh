@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.5}"
+VERSION="${VERSION:-1.0.6}"
 SRC="extension"
 OUT="build/extensions"
 

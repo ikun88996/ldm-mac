@@ -20,7 +20,10 @@ final class VideoEngine {
     private var jobs: [String: Job] = [:]
     private var order: [String] = []
     private var processes: [String: Process] = [:]
+    private var pipes: [String: Pipe] = [:]
     private var cookieFiles: [String: String] = [:]
+    /// 每个任务最近一次的启动参数，供「就地重试」复用
+    private var jobParams: [String: (dir: String, quality: VideoQuality, proxy: String?, referer: String?, cookies: String?)] = [:]
     private let lock = NSLock()
     var onUpdate: (() -> Void)?
 
@@ -79,11 +82,53 @@ final class VideoEngine {
     @discardableResult
     func start(uri: String, downloadDir: String, quality: VideoQuality,
                proxy: String? = nil, referer: String? = nil, cookies: String? = nil) -> String? {
+        let id = UUID().uuidString
+        return launch(id: id, uri: uri, downloadDir: downloadDir, quality: quality,
+                      proxy: proxy, referer: referer, cookies: cookies, fresh: true)
+    }
+
+    /// 就地重试：用**同一条任务行**重新开始（例如微博短链失败后拿到真实视频地址）
+    /// 这样用户看到的是一条任务从「解析中…」到「已完成」，不会先冒出一条红色失败行
+    @discardableResult
+    func restart(id: String, uri: String) -> Bool {
+        guard let p = jobParams[id] else { return false }
+        return launch(id: id, uri: uri, downloadDir: p.dir, quality: p.quality,
+                      proxy: p.proxy, referer: p.referer, cookies: p.cookies, fresh: false) != nil
+    }
+
+    @discardableResult
+    private func launch(id: String, uri: String, downloadDir: String, quality: VideoQuality,
+                        proxy: String?, referer: String?, cookies: String?, fresh: Bool) -> String? {
         guard let ytdlp = VideoEngine.findYtDlp() else { return nil }
 
-        let id = UUID().uuidString
-        jobs[id] = Job(id: id, title: L("video.parsingTitle"), uri: uri, message: L("video.resolving"))
-        order.append(id)
+        // 记住参数，供 restart 复用
+        jobParams[id] = (dir: downloadDir, quality: quality, proxy: proxy, referer: referer, cookies: cookies)
+        if fresh {
+            jobs[id] = Job(id: id, title: L("video.parsingTitle"), uri: uri, message: L("video.resolving"))
+            order.append(id)
+        } else {
+            mutate { jobs in
+                guard var job = jobs[id] else { return }
+                job.uri = uri
+                job.title = L("video.parsingTitle")
+                job.status = .waiting
+                job.message = L("video.resolving")
+                job.progress = 0
+                job.doneBytes = 0
+                job.totalBytes = 0
+                job.speed = 0
+                job.etaText = "--:--"
+                job.outputPath = nil
+                jobs[id] = job
+            }
+        }
+
+        // 「就地重试」前先把老进程的收尾切断：否则老 yt-dlp 退出时会回调 finish()，
+        // 把刚重启的任务状态又覆盖回「出错」（用户就会看到一闪而过的红色失败）
+        if let old = processes[id] {
+            pipes[id]?.fileHandleForReading.readabilityHandler = nil
+            old.terminationHandler = nil
+        }
 
         var args = ["--newline", "--no-warnings", "--no-playlist", "--progress", "--progress-delta", "0.5",
                     "-o", "\(downloadDir)/%(title)s.%(ext)s"]
@@ -100,6 +145,7 @@ final class VideoEngine {
         }
         if let cookies, !cookies.isEmpty, let cookiePath = VideoEngine.writeCookieFile(cookies, for: uri) {
             args += ["--cookies", cookiePath]
+            if let old = cookieFiles[id], old != cookiePath { try? FileManager.default.removeItem(atPath: old) }
             cookieFiles[id] = cookiePath
         }
         if let proxy, !proxy.isEmpty { args += ["--proxy", proxy] }
@@ -131,6 +177,8 @@ final class VideoEngine {
         p.terminationHandler = { [weak self] proc in
             guard let self else { return }
             pipe.fileHandleForReading.readabilityHandler = nil
+            // 只认当前这条任务正在跑的那个进程，被换掉的老进程退出不再改状态
+            guard self.processes[id] === proc else { return }
             self.finish(id: id, code: proc.terminationStatus)
         }
 
@@ -141,6 +189,7 @@ final class VideoEngine {
             return nil
         }
         processes[id] = p
+        pipes[id] = pipe
         return id
     }
 

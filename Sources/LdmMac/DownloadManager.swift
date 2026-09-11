@@ -39,8 +39,9 @@ final class DownloadManager: ObservableObject {
     private var timer: Timer?
     private var toastWork: DispatchWorkItem?
     private var lastError: String = ""
-    /// 已经因为「下到网页」而重试过的链接，避免死循环
-    private var retriedURLs: Set<String> = []
+    /// 已经就地重试过的**任务**（按任务记，不是按地址记）：
+    /// 按地址记会导致「同一条链接再下一次」时被误判成已重试过，救援被跳过、留下失败行
+    private var retriedTaskIDs: Set<String> = []
     /// 手动覆盖任务状态（例如"下到的是网页"这种 aria2 认为成功、实际失败的情况）
     private var statusOverrides: [String: (TaskStatus, String)] = [:]
 
@@ -482,7 +483,9 @@ final class DownloadManager: ObservableObject {
                 path: j.outputPath ?? "", uri: j.uri, message: j.message))
         }
 
-        let byGid = Dictionary(uniqueKeysWithValues: list.map { ($0.gid, $0) })
+        // 用 uniquingKeysWith 而不是 uniqueKeysWithValues：aria2 在状态切换的瞬间可能把同一个 gid
+        // 同时列在「等待」和「已停止」里，重复键会让 uniqueKeysWithValues 直接崩掉整个 App
+        let byGid = Dictionary(list.map { ($0.gid, $0) }, uniquingKeysWith: { first, _ in first })
         var gids = ariaOrder.filter { byGid[$0] != nil }
         for t in list where !gids.contains(t.gid) { gids.append(t.gid) }
         ariaOrder = gids
@@ -525,20 +528,39 @@ final class DownloadManager: ObservableObject {
         // 网页兜底：删掉误下的文件，把任务标成失败但**留在列表里**（不再静默消失）
         for b in bogus { recoverFromWebPage(b) }
 
-        // 视频任务失败、但报错里带着被跳转后的真实地址（微博 t.cn 短链的典型情况）→ 自动用真实地址重试一次
+        // 视频任务失败、但报错里带着被跳转后的真实地址（微博 t.cn 短链的典型情况）
+        // → 就地重试：同一条任务行继续跑，不新增一行、不留红色失败行
+        var restartedIDs = Set<String>()
         for e in newlyFinished where e.kind == .video && e.status == .error {
             guard let target = DownloadManager.recoverTarget(fromErrorMessage: e.message),
-                  target != e.uri, !retriedURLs.contains(target) else { continue }
-            retriedURLs.insert(target)
-            // 把这条「原始的失败任务」的说明换成更好懂的话，别让用户看到 yt-dlp 的原文以为白干了
-            video.setMessage(id: e.id, L("toast.linkRecovered"))
-            showToast(L("toast.linkRecovered"))
-            _ = add(target, mode: .video, quiet: true)
+                  target != e.uri, !retriedTaskIDs.contains(e.id) else { continue }
+            retriedTaskIDs.insert(e.id)
+            if video.restart(id: e.id, uri: target) {
+                restartedIDs.insert(e.id)
+                showToast(L("toast.linkRecovered"))
+            } else {
+                _ = add(target, mode: .video, quiet: true)   // 兜底：重启失败才另起一条
+            }
+        }
+
+        // 已就地重启的任务：立刻换成最新状态（解析中…），界面上一帧红「出错」都不闪
+        if !restartedIDs.isEmpty {
+            let fresh = video.snapshot()
+            for (idx, t) in out.enumerated() where restartedIDs.contains(t.id) {
+                guard let j = fresh.first(where: { $0.id == t.id }) else { continue }
+                out[idx] = DownloadTask(
+                    id: j.id, name: j.outputPath.map { ($0 as NSString).lastPathComponent } ?? j.title,
+                    kind: .video, status: j.status, totalBytes: j.totalBytes, doneBytes: j.doneBytes,
+                    speed: j.speed, connections: 0, etaText: j.etaText,
+                    path: j.outputPath ?? "", uri: j.uri, message: j.message)
+            }
+            tasks = out
         }
 
         // 只有真正成功的才报「已完成」；失败的要明确报失败（以前失败也弹“已完成”，是 bug）
+        // 已经就地重试的任务不算失败，状态马上会变回「解析中…」
         let okFinished = newlyFinished.filter { $0.status == .complete }
-        let failedFinished = newlyFinished.filter { $0.status == .error }
+        let failedFinished = newlyFinished.filter { $0.status == .error && !restartedIDs.contains($0.id) }
 
         if let first = okFinished.first {
             NSSound(named: "Glass")?.play()
@@ -578,11 +600,11 @@ final class DownloadManager: ObservableObject {
     private func recoverFromWebPage(_ task: DownloadTask) {
         if !task.path.isEmpty { try? FileManager.default.removeItem(atPath: task.path) }
 
-        let canRetry = DownloadManager.looksLikeVideo(task.uri) && !retriedURLs.contains(task.uri)
+        let canRetry = DownloadManager.looksLikeVideo(task.uri) && !retriedTaskIDs.contains(task.id)
         statusOverrides[task.id] = (.error, canRetry ? L("toast.pageRetryVideo") : L("toast.pageNotFile"))
 
         if canRetry {
-            retriedURLs.insert(task.uri)
+            retriedTaskIDs.insert(task.id)
             showToast(L("toast.pageRetryVideo"))
             _ = add(task.uri, mode: .video, quiet: true)
         } else {

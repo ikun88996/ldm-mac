@@ -2,7 +2,7 @@
 
 > **Lightning Download Manager** —— macOS 原生高速多线程下载器，把 aria2、yt-dlp、ffmpeg 这三个命令行神器，装进一个开箱即用的图形界面，再配一个能嗅探网页视频的浏览器扩展（Chrome / Firefox）。
 
-![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.5-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
+![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.6-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
 
 ![界面截图](docs/screenshot-main.png)
 
@@ -25,7 +25,7 @@
 
 ### 方式一：下载安装包（推荐）
 
-到 [Releases](https://github.com/ikun88996/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.5.dmg`（版本号以 Releases 页面为准，用 `latest` 链接永远拿到最新版），打开后：
+到 [Releases](https://github.com/ikun88996/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.6.dmg`（版本号以 Releases 页面为准，用 `latest` 链接永远拿到最新版），打开后：
 
 1. 把「LDM Mac」拖进「Applications」
 2. 首次打开若被系统拦下（提示“无法验证开发者”或“已损坏”，因为个人开发者没有苹果公证）：
@@ -43,9 +43,9 @@
 git clone https://github.com/ikun88996/ldm-mac.git
 cd ldm-mac
 ./make_icon.sh                     # 生成应用图标
-VERSION=1.0.5 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
-VERSION=1.0.5 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
-VERSION=1.0.5 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
+VERSION=1.0.6 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
+VERSION=1.0.6 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
+VERSION=1.0.6 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
 ```
 
 只需要 Xcode Command Line Tools（`xcode-select --install`），**不需要**创建 Xcode 工程、不需要签名证书。
@@ -101,7 +101,7 @@ brew install aria2 yt-dlp ffmpeg
 
 ## 浏览器扩展
 
-同一套代码，两套 manifest，随每个 Release 一起发布（文件名带版本号）：`LDM-Mac-Chrome-Extension-<版本>.zip` 与 `LDM-Mac-Firefox-Extension-<版本>.zip`。当前版本为 **1.0.5**。
+同一套代码，两套 manifest，随每个 Release 一起发布（文件名带版本号）：`LDM-Mac-Chrome-Extension-<版本>.zip` 与 `LDM-Mac-Firefox-Extension-<版本>.zip`。当前版本为 **1.0.6**。
 
 功能：
 
@@ -267,6 +267,12 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 
 ## 更新日志
 
+### v1.0.6
+- 🐛 **「先失败再成功」的两条任务 → 合成一条**：微博短链这类情况现在**同一条任务就地重试**，列表里只有一条任务从「解析中…」走到「已完成」，不会再多出红色失败行，连一帧红闪都没有（根因是老 yt-dlp 进程退出时的回调会把新任务的状态覆盖回「出错」，已切断）
+- 🐛 **修复「同一条链接第二次下载就失败」**：防重复重试之前按**链接**记，导致同一条链接第二次下载时救援被跳过；现在按**任务**记，每次都能救回来
+- 🐛 **修复偶发崩溃**：aria2 在状态切换瞬间可能把同一个任务同时列进「等待」和「已停止」，字典重复键会让 App 直接崩（崩溃报告 `EXC_BREAKPOINT @ DownloadManager.apply`），已改为安全合并
+- 🔌 本机接口 `/tasks` 返回 `message` 字段（失败原因），方便扩展与脚本排查
+
 ### v1.0.5
 - 💬 微博短链这种「先失败 → 自动还原真实地址重试成功」的任务，失败那一行现在写明**「已从跳转地址还原真实视频地址，自动重试」**，不再直接甩 yt-dlp 的 `Unsupported URL: passport.weibo.com/...` 原文，免得看着以为白下了
 - 🔌 本机接口 `/tasks` 增加 `message` 字段（失败原因），方便扩展和脚本排查
@@ -320,7 +326,7 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 brew install aria2 yt-dlp ffmpeg   # required runtime dependencies
 ```
 
-1. Download `LDM-Mac-1.0.5.dmg` from [Releases](https://github.com/ikun88996/ldm-mac/releases/latest), drag the app into Applications.
+1. Download `LDM-Mac-1.0.6.dmg` from [Releases](https://github.com/ikun88996/ldm-mac/releases/latest), drag the app into Applications.
 2. First launch blocked by Gatekeeper? Right-click → Open, or `xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"`.
 3. Browser extension (keep the app running — it listens on `http://127.0.0.1:47823`):
    - Chrome/Edge: `chrome://extensions` → Developer mode → Load unpacked → the `chrome` folder
