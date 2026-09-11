@@ -1,0 +1,189 @@
+/* LDM Mac 扩展弹窗 */
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+  padding: 12px;
+  background: #16171b;
+  color: #e8e9ee;
+  font: 12px/1.5 -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #2166ff, #7338ee);
+  color: #fff;
+  font-size: 12px;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #9aa0ad;
+}
+
+.status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8b8f9a;
+}
+
+.status.ok .dot {
+  background: #22c07b;
+}
+
+.status.ok {
+  color: #7fe0b4;
+}
+
+.status.bad .dot {
+  background: #ff8a8a;
+}
+
+.status.bad {
+  color: #ff9b9b;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b93a5;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+section {
+  margin-bottom: 12px;
+}
+
+.tasks,
+.media {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task,
+.media-row {
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #1e2027;
+}
+
+.task-head,
+.media-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-name,
+.media-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.task-meta {
+  margin-top: 5px;
+  display: flex;
+  justify-content: space-between;
+  color: #8b93a5;
+  font-size: 10.5px;
+}
+
+.bar {
+  margin-top: 5px;
+  height: 5px;
+  border-radius: 3px;
+  background: #2b2e37;
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2166ff, #7338ee);
+}
+
+.badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #2b2f3d;
+  color: #93a4cc;
+  font-size: 10px;
+}
+
+button {
+  padding: 3px 8px;
+  border: 1px solid #343846;
+  border-radius: 6px;
+  background: #23262f;
+  color: #d6d9e2;
+  font: 600 10.5px/1.3 inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2c3038;
+}
+
+button.primary {
+  border-color: transparent;
+  background: #2166ff;
+  color: #fff;
+}
+
+button.primary:hover {
+  background: #3d7bff;
+}
+
+.empty {
+  padding: 10px 4px;
+  color: #767c8a;
+  text-align: center;
+}
+
+footer {
+  padding-top: 4px;
+  border-top: 1px solid #24272f;
+  color: #767c8a;
+  font-size: 10.5px;
+}

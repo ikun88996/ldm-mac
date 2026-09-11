@@ -1,37 +1,60 @@
 #!/bin/bash
-# 打包 .dmg 安装包（拖拽到 Applications 安装）
+# 打包 .dmg 安装包（App + 浏览器扩展 + 拖拽安装）
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.0.1}"
 APP_NAME="LDM Mac"
 DMG="dist/LDM-Mac-${VERSION}.dmg"
 STAGE="build/dmg-stage"
 
 ./make_app.sh
+./make_extension.sh
 
 echo "▸ 准备 DMG 内容"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -R "dist/${APP_NAME}.app" "$STAGE/"
+cp -R extension "$STAGE/LDM-Mac-Chrome-Extension"
+rm -f "$STAGE/LDM-Mac-Chrome-Extension/.DS_Store"
 ln -s /Applications "$STAGE/Applications"
 
 cat > "$STAGE/安装说明.txt" <<'TXT'
 LDM Mac — Lightning Download Manager
 macOS 原生高速多线程下载器
 
-安装：
+【1】安装 App
   把左边的「LDM Mac」拖到右边的「Applications」文件夹里即可。
 
-首次打开被系统拦下（“无法验证开发者” / “已损坏”）时：
+【2】首次打开被系统拦下（“无法验证开发者” / “已损坏”）时
   方式一（推荐）：在「应用程序」里右键点 LDM Mac → 打开 → 再点「打开」
   方式二（终端执行一次）：
     xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"
 
-运行依赖（首次使用前装一次）：
+【3】运行依赖（首次使用前装一次）
     brew install aria2 yt-dlp ffmpeg
   也可以在 App 的「设置 → 引擎依赖」里点「用 Homebrew 一键安装」。
 
-下载 YouTube 需要代理：设置里打开「使用代理」，填本机代理地址（如 http://127.0.0.1:7897）。
+【4】安装浏览器扩展（可选，装了才能嗅探网页视频）
+  a. 先把 LDM Mac.app 拖进应用程序并启动它（扩展需要 App 在运行）
+  b. Chrome 地址栏打开 chrome://extensions
+  c. 打开右上角「开发者模式」
+  d. 点「加载已解压的扩展程序」，选中旁边的 LDM-Mac-Chrome-Extension/chrome 文件夹
+  具体说明见 LDM-Mac-Chrome-Extension/README.md
+
+【5】下载 YouTube 需要代理
+  设置里打开「使用代理」，填本机代理地址（如 http://127.0.0.1:7897）。
+
+界面语言：跟随系统，也可在「设置 → 通用」里手动选 简体中文 / 繁體中文 / English。
+
+---
+
+LDM Mac — Lightning Download Manager (macOS)
+1. Drag "LDM Mac" into Applications.
+2. First launch blocked? Right-click the app → Open, or run:
+   xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"
+3. Install dependencies: brew install aria2 yt-dlp ffmpeg
+4. Browser extension: launch the app, open chrome://extensions, enable Developer mode,
+   click "Load unpacked" and select LDM-Mac-Chrome-Extension/chrome.
 TXT
 
 echo "▸ 生成 DMG"

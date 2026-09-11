@@ -14,10 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !running.isEmpty else { return .terminateNow }
 
         let alert = NSAlert()
-        alert.messageText = "还有 \(running.count) 个任务在下载"
-        alert.informativeText = "退出会中断下载，重新添加同一链接可断点续传。"
-        alert.addButton(withTitle: "退出并中断")
-        alert.addButton(withTitle: "继续下载")
+        alert.messageText = L("quit.title", running.count)
+        alert.informativeText = L("quit.body")
+        alert.addButton(withTitle: L("quit.confirm"))
+        alert.addButton(withTitle: L("quit.cancel"))
         if alert.runModal() == .alertFirstButtonReturn {
             AppDelegate.allowTermination = true
             return .terminateNow
@@ -39,7 +39,7 @@ final class EngineHub {
 enum AppInfo {
     static let name = "LDM Mac"
     static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
     }
 }
 
@@ -47,6 +47,7 @@ enum AppInfo {
 struct LdmMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var dm = DownloadManager()
+    @StateObject private var l10n = L10n.shared
 
     init() {
         // 无界面自检模式：LdmMac --selftest <url> [--dir 路径] [--conn 16] [--video]
@@ -55,19 +56,27 @@ struct LdmMacApp: App {
             SelfTest.run(args: args)
             exit(SelfTest.exitCode)
         }
+        // 多语言完整性检查：LdmMac --i18n-check
+        if CommandLine.arguments.contains("--i18n-check") {
+            SelfTest.run(args: ["--i18n-check"])
+            exit(SelfTest.exitCode)
+        }
     }
 
     var body: some Scene {
         WindowGroup(AppInfo.name) {
             ContentView()
                 .environmentObject(dm)
+                .environmentObject(l10n)
+                // 语言切换后整棵视图树重建，保证所有文案（含模型里的）立即更新
+                .id(l10n.current.rawValue)
                 .onAppear { EngineHub.shared.manager = dm }
         }
         .defaultSize(width: 960, height: 640)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .appInfo) {
-                Button("打开下载目录") { dm.openDownloadDir() }
+                Button(L("menu.openDownloadDir")) { dm.openDownloadDir() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
             }
         }

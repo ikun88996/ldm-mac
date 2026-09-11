@@ -14,3 +14,7 @@ xcuserdata/
 # 编辑器
 .vscode/
 .idea/
+
+# 测试用依赖（不随项目提交）
+node_modules/
+package-lock.json

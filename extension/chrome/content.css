@@ -1,0 +1,184 @@
+/* LDM Mac 页面浮层样式（不跟随宿主题，独立配色，避免被页面 CSS 污染） */
+
+#ldm-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483646;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #2166ff, #7338ee);
+  color: #fff;
+  font: 600 13px/1 -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  box-shadow: 0 6px 20px rgba(20, 40, 120, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#ldm-fab.ldm-show {
+  display: inline-flex;
+}
+
+#ldm-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(20, 40, 120, 0.45);
+}
+
+#ldm-fab.ldm-flash {
+  background: linear-gradient(135deg, #18a06b, #12855a);
+}
+
+#ldm-fab .ldm-arrow {
+  font-size: 14px;
+}
+
+#ldm-fab .ldm-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+#ldm-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 66px;
+  z-index: 2147483647;
+  width: 320px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 12px;
+  background: #17181c;
+  color: #e8e9ee;
+  border: 1px solid #2b2d34;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  font: 12px/1.5 -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+#ldm-panel .ldm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+#ldm-panel .ldm-title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+#ldm-panel .ldm-close {
+  border: none;
+  background: transparent;
+  color: #8b8f9a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#ldm-panel .ldm-close:hover {
+  color: #fff;
+}
+
+#ldm-panel .ldm-page-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #35406b;
+  border-radius: 8px;
+  background: #1e2540;
+  color: #b9c6ff;
+  font: 600 12px/1.2 inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+#ldm-panel .ldm-page-btn:hover {
+  background: #26305a;
+}
+
+#ldm-panel .ldm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#ldm-panel .ldm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #1f2127;
+}
+
+#ldm-panel .ldm-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #d6d9e2;
+}
+
+#ldm-panel .ldm-badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #2b2f3d;
+  color: #8fa0c8;
+  font-size: 10px;
+}
+
+#ldm-panel .ldm-row-btn {
+  flex: none;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 6px;
+  background: #2166ff;
+  color: #fff;
+  font: 600 11px/1.2 inherit;
+  cursor: pointer;
+}
+
+#ldm-panel .ldm-row-btn:hover {
+  background: #3d7bff;
+}
+
+#ldm-panel .ldm-empty {
+  padding: 14px 6px;
+  text-align: center;
+  color: #7c808c;
+}
+
+#ldm-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 118px;
+  z-index: 2147483647;
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: #17181c;
+  color: #e8e9ee;
+  border: 1px solid #2b2d34;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font: 600 12px/1.2 -apple-system, "SF Pro Text", "PingFang SC", sans-serif;
+}
+
+#ldm-toast.ldm-ok {
+  border-color: #1c7f57;
+  color: #7ee2b8;
+}
+
+#ldm-toast.ldm-err {
+  border-color: #8b3030;
+  color: #ff9b9b;
+}

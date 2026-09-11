@@ -6,6 +6,11 @@ enum SelfTest {
     static var exitCode: Int32 = 0
 
     static func run(args: [String]) {
+        if args.contains("--i18n-check") {
+            runI18nCheck()
+            return
+        }
+
         var url = ""
         var dir = (NSTemporaryDirectory() as NSString).appendingPathComponent("ldm-selftest")
         var conn = 16
@@ -40,6 +45,32 @@ enum SelfTest {
             runVideo(url: url, dir: dir, timeout: timeout)
         } else {
             runFile(url: url, dir: dir, conn: conn, timeout: timeout)
+        }
+    }
+
+    // MARK: - 多语言自检
+
+    static func runI18nCheck() {
+        let l10n = L10n.shared
+        let keys = l10n.allKeys
+        print("== LDM Mac 多语言检查 ==")
+        print("语言数：3（zh-Hans / zh-Hant / en）")
+        print("文案 key 总数：\(keys.count)")
+
+        let missing = l10n.missingTranslations()
+        if missing.isEmpty {
+            print("✅ 三种语言全部齐全，无缺失")
+        } else {
+            print("❌ 缺失 \(missing.count) 条：\(missing.prefix(20).joined(separator: " | "))")
+            exitCode = 1
+        }
+
+        let samples = ["app.subtitle", "btn.download", "empty.title", "settings.extension", "status.active", "toast.addedFile"]
+        for lang in [AppLang.zhHans, AppLang.zhHant, AppLang.en] {
+            print("--- \(lang.rawValue) ---")
+            for k in samples {
+                print("  \(k) = \(l10n.t(k, lang: lang))")
+            }
         }
     }
 

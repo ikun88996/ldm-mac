@@ -221,13 +221,17 @@ final class AriaEngine {
     }
 
     @discardableResult
-    func add(uri: String, dir: String, connections: Int) -> String? {
-        let opts: [String: Any] = [
+    func add(uri: String, dir: String, connections: Int,
+             referer: String? = nil, cookies: String? = nil, outName: String? = nil) -> String? {
+        var opts: [String: Any] = [
             "dir": dir,
             "split": "\(connections)",
             "max-connection-per-server": "\(connections)",
             "min-split-size": "1M"
         ]
+        if let referer, !referer.isEmpty { opts["referer"] = referer }
+        if let cookies, !cookies.isEmpty { opts["header"] = ["Cookie: \(cookies)"] }
+        if let outName, !outName.isEmpty { opts["out"] = outName }
         return rpc("aria2.addUri", [[uri], opts]) as? String
     }
 

@@ -1,0 +1,34 @@
+{
+  "extName": {
+    "message": "LDM Mac 下载器",
+    "description": "扩展名称"
+  },
+  "extDesc": {
+    "message": "嗅探页面上的视频，一键把链接发给 LDM Mac（macOS 多线程下载器）。",
+    "description": "扩展说明"
+  },
+  "menuLink": { "message": "用 LDM Mac 下载" },
+  "menuMedia": { "message": "用 LDM Mac 下载这个视频" },
+  "menuSelection": { "message": "用 LDM Mac 下载这段链接" },
+  "menuPage": { "message": "把这个页面交给 LDM Mac（视频解析）" },
+  "fabTitle": { "message": "发送到 LDM Mac" },
+  "sendPage": { "message": "整页交给 LDM 解析（yt-dlp）" },
+  "noMedia": { "message": "这个页面没检测到媒体" },
+  "download": { "message": "下载" },
+  "toastAdded": { "message": "已加入 LDM Mac" },
+  "toastFailed": { "message": "连接不上 LDM Mac" },
+  "statusConnected": { "message": "已连接" },
+  "statusDisconnected": { "message": "LDM Mac 未运行" },
+  "statusWaiting": { "message": "排队中" },
+  "statusActive": { "message": "下载中" },
+  "statusPaused": { "message": "已暂停" },
+  "statusComplete": { "message": "已完成" },
+  "statusError": { "message": "出错" },
+  "tasksTitle": { "message": "任务" },
+  "mediaTitle": { "message": "本页检测到的媒体" },
+  "noTasks": { "message": "暂无任务" },
+  "popupHint": { "message": "右键链接或视频 →「用 LDM Mac 下载」" },
+  "pause": { "message": "暂停" },
+  "resume": { "message": "继续" },
+  "remove": { "message": "删除" }
+}

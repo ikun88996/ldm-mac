@@ -5,6 +5,7 @@ import AppKit
 
 struct ContentView: View {
     @EnvironmentObject var dm: DownloadManager
+    @EnvironmentObject var l10n: L10n
     @State private var input: String = ""
     @State private var mode: DownloadMode = .auto
     @State private var showSettings = false
@@ -21,7 +22,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 880, minHeight: 560)
         .sheet(isPresented: $showSettings) {
-            SettingsView().environmentObject(dm)
+            SettingsView().environmentObject(dm).environmentObject(l10n)
         }
         .onAppear { inputFocused = true }
     }
@@ -35,14 +36,15 @@ struct ContentView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.tint)
                 Text("LDM Mac").font(.system(size: 16, weight: .bold))
-                Text("Lightning Download Manager · v\(AppInfo.version)").font(.caption).foregroundStyle(.secondary)
+                Text(l10n.t("app.subtitle") + " · v\(AppInfo.version)")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             HStack(spacing: 6) {
                 Circle()
                     .fill(dm.engineReady ? Color.green : Color.orange)
                     .frame(width: 7, height: 7)
-                Text(dm.engineReady ? "引擎就绪" : "引擎未就绪")
+                Text(dm.engineReady ? l10n.t("engine.ready") : l10n.t("engine.starting"))
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -59,16 +61,16 @@ struct ContentView: View {
             }
             .foregroundStyle(dm.globalSpeed > 0 ? Color.green : Color.secondary)
 
-            Button("暂停全部") { dm.pauseAll() }.controlSize(.small)
-            Button("继续全部") { dm.resumeAll() }.controlSize(.small)
-            Button("清除已完成") { dm.clearFinished() }.controlSize(.small)
+            Button(l10n.t("btn.pauseAll")) { dm.pauseAll() }.controlSize(.small)
+            Button(l10n.t("btn.resumeAll")) { dm.resumeAll() }.controlSize(.small)
+            Button(l10n.t("btn.clearFinished")) { dm.clearFinished() }.controlSize(.small)
             Button {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
             }
             .controlSize(.small)
-            .help("设置")
+            .help(l10n.t("btn.settings"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -79,7 +81,7 @@ struct ContentView: View {
 
     private var addBar: some View {
         HStack(spacing: 10) {
-            TextField("粘贴链接：直链文件 / YouTube / B站 / HuggingFace 大模型…", text: $input)
+            TextField(l10n.t("placeholder.url"), text: $input)
                 .textFieldStyle(.roundedBorder)
                 .focused($inputFocused)
                 .onSubmit { submit() }
@@ -90,14 +92,14 @@ struct ContentView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 260)
+            .frame(width: 270)
             .labelsHidden()
 
             Button {
                 submit()
             } label: {
-                Label("下载", systemImage: "arrow.down")
-                    .frame(minWidth: 78)
+                Label(l10n.t("btn.download"), systemImage: "arrow.down")
+                    .frame(minWidth: 82)
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
@@ -123,8 +125,8 @@ struct ContentView: View {
                     Image(systemName: "tray.and.arrow.down")
                         .font(.system(size: 42))
                         .foregroundStyle(.tertiary)
-                    Text("还没有任务").font(.headline).foregroundStyle(.secondary)
-                    Text("把文件直链或视频页面链接粘到上面的输入框，回车即可")
+                    Text(l10n.t("empty.title")).font(.headline).foregroundStyle(.secondary)
+                    Text(l10n.t("empty.hint"))
                         .font(.caption).foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -152,15 +154,12 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Button("打开目录") { dm.openDownloadDir() }.controlSize(.small)
+            Button(l10n.t("btn.openDir")) { dm.openDownloadDir() }.controlSize(.small)
             Spacer()
             if let toast = dm.toast {
-                Text(toast)
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .transition(.opacity)
+                Text(toast).font(.caption).foregroundStyle(.green).transition(.opacity)
             }
-            Text("\(dm.tasks.count) 个任务")
+            Text(l10n.t("tasks.count", dm.tasks.count))
                 .font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -173,6 +172,7 @@ struct ContentView: View {
 
 struct TaskRow: View {
     @EnvironmentObject var dm: DownloadManager
+    @EnvironmentObject var l10n: L10n
     let task: DownloadTask
 
     var body: some View {
@@ -193,24 +193,24 @@ struct TaskRow: View {
 
                 if task.canPause {
                     Button { dm.pause(task) } label: { Image(systemName: "pause.fill") }
-                        .help("暂停").controlSize(.small)
+                        .help(l10n.t("row.pause")).controlSize(.small)
                 }
                 if task.canResume {
                     Button { dm.resume(task) } label: { Image(systemName: "play.fill") }
-                        .help("继续").controlSize(.small)
+                        .help(l10n.t("row.resume")).controlSize(.small)
                 }
                 if task.status == .complete && !task.path.isEmpty {
                     Button { dm.openFile(task) } label: { Image(systemName: "play.rectangle") }
-                        .help("打开文件").controlSize(.small)
+                        .help(l10n.t("row.openFile")).controlSize(.small)
                 }
                 if !task.path.isEmpty {
                     Button { dm.reveal(task) } label: { Image(systemName: "folder") }
-                        .help("在访达中显示").controlSize(.small)
+                        .help(l10n.t("row.reveal")).controlSize(.small)
                 }
                 Button { dm.copyLink(task) } label: { Image(systemName: "doc.on.doc") }
-                    .help("复制链接").controlSize(.small)
+                    .help(l10n.t("row.copyLink")).controlSize(.small)
                 Button { dm.remove(task) } label: { Image(systemName: "trash") }
-                    .help("删除任务").controlSize(.small)
+                    .help(l10n.t("row.remove")).controlSize(.small)
             }
 
             ProgressBar(value: task.progress,
@@ -225,12 +225,12 @@ struct TaskRow: View {
                 }
                 if task.kind == .file {
                     Text(Fmt.speed(task.speed))
-                    Text("\(task.connections) 连接")
+                    Text(l10n.t("row.connections", task.connections))
                 } else if task.speed > 0 {
                     Text(Fmt.speed(task.speed))
                 }
-                if !task.isFinished { Text("剩余 \(task.etaText)") }
-                if task.status != .complete && !task.message.isEmpty && task.status == .error {
+                if !task.isFinished { Text(l10n.t("row.remaining", task.etaText)) }
+                if task.status == .error && !task.message.isEmpty {
                     Text(task.message).foregroundStyle(.red).lineLimit(1)
                 }
                 Spacer()
@@ -296,27 +296,38 @@ struct ProgressBar: View {
 
 struct SettingsView: View {
     @EnvironmentObject var dm: DownloadManager
+    @EnvironmentObject var l10n: L10n
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("设置").font(.title3.bold()).padding(16)
+            Text(l10n.t("settings.title")).font(.title3.bold()).padding(16)
 
             Form {
-                Section("下载") {
+                Section(l10n.t("settings.general")) {
+                    Picker(l10n.t("settings.language"), selection: $l10n.setting) {
+                        ForEach(AppLang.allCases) { lang in
+                            Text(lang.displayName).tag(lang.rawValue)
+                        }
+                    }
+                    Text(l10n.t("settings.languageHint"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section(l10n.t("settings.downloads")) {
                     HStack {
                         Text(dm.downloadDir).lineLimit(1).truncationMode(.middle)
                         Spacer()
-                        Button("选择目录…") { chooseDir() }
+                        Button(l10n.t("settings.chooseDir")) { chooseDir() }
                     }
-                    Stepper("每任务连接数：\(dm.maxConnections)", value: $dm.maxConnections, in: 1...64)
-                    Text("服务器支持分段时，线程越多通常越快；8~16 线程已能跑满大多数带宽。")
+                    Stepper(l10n.t("settings.connections", dm.maxConnections), value: $dm.maxConnections, in: 1...64)
+                    Text(l10n.t("settings.connectionsHint"))
                         .font(.caption).foregroundStyle(.secondary)
-                    Stepper("同时下载任务数：\(dm.maxConcurrent)", value: $dm.maxConcurrent, in: 1...10)
+                    Stepper(l10n.t("settings.concurrent", dm.maxConcurrent), value: $dm.maxConcurrent, in: 1...10)
                 }
 
-                Section("视频") {
-                    Picker("画质", selection: Binding(
+                Section(l10n.t("settings.video")) {
+                    Picker(l10n.t("settings.quality"), selection: Binding(
                         get: { dm.videoQuality },
                         set: { dm.videoQuality = $0 }
                     )) {
@@ -324,50 +335,69 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("网络") {
-                    Toggle("使用代理（YouTube 等需要）", isOn: $dm.proxyEnabled)
-                    TextField("代理地址", text: $dm.proxyURL)
+                Section(l10n.t("settings.network")) {
+                    Toggle(l10n.t("settings.proxyToggle"), isOn: $dm.proxyEnabled)
+                    TextField(l10n.t("settings.proxyAddr"), text: $dm.proxyURL)
                         .disabled(!dm.proxyEnabled)
-                    Text("修改后点“重启引擎”生效。检测到本机 Clash 在 127.0.0.1:7897。")
+                    Text(l10n.t("settings.proxyHint"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
-                Section("引擎依赖") {
-                    let missing = dm.missingDependencies
-                    if missing.isEmpty {
-                        Label("aria2c / yt-dlp / ffmpeg 已就绪", systemImage: "checkmark.circle.fill")
+                Section(l10n.t("settings.extension")) {
+                    if dm.apiPort > 0 {
+                        Label(l10n.t("settings.extStatus", dm.apiPort), systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                     } else {
-                        Label("缺少：\(missing.joined(separator: "、"))", systemImage: "exclamationmark.triangle.fill")
+                        Label(l10n.t("settings.extNotRunning"), systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Button("用 Homebrew 一键安装") { dm.installDependencies() }
-                        Text("会打开「终端」执行 brew install \(missing.joined(separator: " "))，装完回来点“重启引擎”。")
+                    }
+                    if dm.extensionFolder != nil {
+                        Button(l10n.t("settings.extOpenFolder")) { dm.openExtensionFolder() }
+                    } else {
+                        Text(l10n.t("settings.extMissing"))
+                            .font(.caption).foregroundStyle(.orange)
+                    }
+                    Text(l10n.t("settings.extHint"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section(l10n.t("settings.deps")) {
+                    let missing = dm.missingDependencies
+                    if missing.isEmpty {
+                        Label(l10n.t("settings.depsOk"), systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        Label(l10n.t("settings.depsMissing", missing.joined(separator: ", ")),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Button(l10n.t("settings.installDeps")) { dm.installDependencies() }
+                        Text(l10n.t("settings.installDepsHint", missing.joined(separator: " ")))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
-                Section("引擎") {
-                    LabeledContent("aria2c", value: AriaEngine.findBinary(named: "aria2c") ?? "未找到")
+                Section(l10n.t("settings.engine")) {
+                    LabeledContent("aria2c", value: AriaEngine.findBinary(named: "aria2c") ?? "—")
                         .font(.caption)
-                    LabeledContent("yt-dlp", value: VideoEngine.findYtDlp() ?? "未找到")
+                    LabeledContent("yt-dlp", value: VideoEngine.findYtDlp() ?? "—")
                         .font(.caption)
                     if let err = dm.engineError {
                         Text(err).font(.caption).foregroundStyle(.red)
                     }
-                    Button("重启引擎（应用线程数/代理改动）") { dm.restartEngine() }
+                    Button(l10n.t("settings.restart")) { dm.restartEngine() }
                 }
             }
             .formStyle(.grouped)
 
             HStack {
                 Spacer()
-                Button("完成") { dismiss() }
+                Button(l10n.t("btn.done")) { dismiss() }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
             }
             .padding(16)
         }
-        .frame(width: 560, height: 620)
+        .frame(width: 580, height: 680)
     }
 
     private func chooseDir() {

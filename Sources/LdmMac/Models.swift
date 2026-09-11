@@ -12,11 +12,11 @@ enum TaskStatus: String {
 
     var label: String {
         switch self {
-        case .waiting:  return "排队中"
-        case .active:   return "下载中"
-        case .paused:   return "已暂停"
-        case .complete: return "已完成"
-        case .error:    return "出错"
+        case .waiting:  return L("status.waiting")
+        case .active:   return L("status.active")
+        case .paused:   return L("status.paused")
+        case .complete: return L("status.complete")
+        case .error:    return L("status.error")
         }
     }
 }
@@ -46,6 +46,23 @@ struct DownloadTask: Identifiable, Equatable {
     var isFinished: Bool { status == .complete || status == .error }
     var canPause: Bool { status == .active || status == .waiting }
     var canResume: Bool { status == .paused }
+
+    /// 给浏览器扩展的 JSON 表示
+    var json: [String: Any] {
+        [
+            "id": id,
+            "name": name,
+            "kind": kind.rawValue,
+            "status": status.rawValue,
+            "progress": progress,
+            "done": doneBytes,
+            "total": totalBytes,
+            "speed": speed,
+            "connections": connections,
+            "path": path,
+            "url": uri
+        ]
+    }
 }
 
 // MARK: - 下载模式 / 视频画质
@@ -55,9 +72,9 @@ enum DownloadMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .auto:  return "自动识别"
-        case .file:  return "多线程下载"
-        case .video: return "视频解析"
+        case .auto:  return L("mode.auto")
+        case .file:  return L("mode.file")
+        case .video: return L("mode.video")
         }
     }
 }
@@ -67,9 +84,9 @@ enum VideoQuality: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .best:      return "最高画质（自动合并 MP4）"
-        case .p1080:     return "1080p 及以下"
-        case .audioOnly: return "仅音频（mp3）"
+        case .best:      return L("quality.best")
+        case .p1080:     return L("quality.1080")
+        case .audioOnly: return L("quality.audio")
         }
     }
 }

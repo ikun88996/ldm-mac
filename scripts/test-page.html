@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>LDM Mac 扩展测试页</title>
+  <style>
+    body { font: 15px/1.7 -apple-system, "PingFang SC", sans-serif; margin: 40px; max-width: 760px; }
+    h1 { font-size: 20px; }
+    .note { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>LDM Mac 扩展测试页</h1>
+  <p class="note">这个页面故意放了一个 mp4、一个 mp3，以及只在源码里出现的 m3u8 地址，用来验证扩展的嗅探能力。</p>
+
+  <video id="v1" src="https://www.w3schools.com/html/mov_bbb.mp4" controls width="480"></video>
+  <p></p>
+  <audio id="a1" src="https://www.w3schools.com/html/horse.mp3" controls></audio>
+
+  <script>
+    // 模拟播放器在 JS 里拼接出来的 HLS 地址：只存在于源码中
+    var hlsSource = "https://cdn.example.com/hls/master.m3u8?token=abc123";
+    console.log(hlsSource);
+  </script>
+</body>
+</html>

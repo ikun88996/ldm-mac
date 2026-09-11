@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.0.1}"
 APP_NAME="LDM Mac"
 BUNDLE="dist/${APP_NAME}.app"
 
@@ -31,6 +31,13 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
     <key>NSHighResolutionCapable</key>   <true/>
     <key>LSApplicationCategoryType</key> <string>public.app-category.utilities</string>
     <key>CFBundleIconFile</key>          <string>AppIcon</string>
+    <key>CFBundleDevelopmentRegion</key> <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+        <string>zh-Hant</string>
+    </array>
     <key>NSHumanReadableCopyright</key>  <string>LDM Mac · 基于 aria2 / yt-dlp / ffmpeg</string>
 </dict>
 </plist>
@@ -38,6 +45,13 @@ PLIST
 
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$BUNDLE/Contents/Resources/AppIcon.icns"
+fi
+
+# 把浏览器扩展一起放进 App 包里，用户从 App 设置里能直接打开这个文件夹
+if [ -f extension/chrome/manifest.json ]; then
+  rm -rf "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
+  cp -R extension "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
+  rm -f "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension/.DS_Store"
 fi
 
 echo "▸ 临时签名（ad-hoc）"

@@ -1,0 +1,34 @@
+{
+  "extName": {
+    "message": "LDM Mac Downloader",
+    "description": "Extension name"
+  },
+  "extDesc": {
+    "message": "Sniff videos on the page and send any link to LDM Mac with one click (multi-thread downloader for macOS).",
+    "description": "Extension description"
+  },
+  "menuLink": { "message": "Download with LDM Mac" },
+  "menuMedia": { "message": "Download this media with LDM Mac" },
+  "menuSelection": { "message": "Download this link with LDM Mac" },
+  "menuPage": { "message": "Send this page to LDM Mac (video)" },
+  "fabTitle": { "message": "Send to LDM Mac" },
+  "sendPage": { "message": "Send this page to LDM (yt-dlp)" },
+  "noMedia": { "message": "No media detected on this page" },
+  "download": { "message": "Download" },
+  "toastAdded": { "message": "Added to LDM Mac" },
+  "toastFailed": { "message": "Could not reach LDM Mac" },
+  "statusConnected": { "message": "Connected" },
+  "statusDisconnected": { "message": "LDM Mac is not running" },
+  "statusWaiting": { "message": "Queued" },
+  "statusActive": { "message": "Downloading" },
+  "statusPaused": { "message": "Paused" },
+  "statusComplete": { "message": "Completed" },
+  "statusError": { "message": "Failed" },
+  "tasksTitle": { "message": "Tasks" },
+  "mediaTitle": { "message": "Media on this page" },
+  "noTasks": { "message": "No tasks" },
+  "popupHint": { "message": "Right-click a link or video → “Download with LDM Mac”" },
+  "pause": { "message": "Pause" },
+  "resume": { "message": "Resume" },
+  "remove": { "message": "Remove" }
+}
