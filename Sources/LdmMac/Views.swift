@@ -312,6 +312,7 @@ struct SettingsView: View {
                     }
                     Text(l10n.t("settings.languageHint"))
                         .font(.caption).foregroundStyle(.secondary)
+                    Toggle(l10n.t("settings.notify"), isOn: $dm.notifyOnComplete)
                 }
 
                 Section(l10n.t("settings.downloads")) {

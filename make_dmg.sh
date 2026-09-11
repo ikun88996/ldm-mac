@@ -1,21 +1,21 @@
 #!/bin/bash
-# 打包 .dmg 安装包（App + 浏览器扩展 + 拖拽安装）
+# 打包 .dmg 安装包（App + Chrome/Firefox 扩展 + 拖拽安装）
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.1}"
+VERSION="${VERSION:-1.0.2}"
 APP_NAME="LDM Mac"
 DMG="dist/LDM-Mac-${VERSION}.dmg"
 STAGE="build/dmg-stage"
 
-./make_app.sh
 ./make_extension.sh
+./make_app.sh
 
 echo "▸ 准备 DMG 内容"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -R "dist/${APP_NAME}.app" "$STAGE/"
-cp -R extension "$STAGE/LDM-Mac-Chrome-Extension"
-rm -f "$STAGE/LDM-Mac-Chrome-Extension/.DS_Store"
+cp -R build/extensions "$STAGE/LDM-Mac-Browser-Extensions"
+find "$STAGE" -name ".DS_Store" -delete
 ln -s /Applications "$STAGE/Applications"
 
 cat > "$STAGE/安装说明.txt" <<'TXT'
@@ -34,17 +34,23 @@ macOS 原生高速多线程下载器
     brew install aria2 yt-dlp ffmpeg
   也可以在 App 的「设置 → 引擎依赖」里点「用 Homebrew 一键安装」。
 
-【4】安装浏览器扩展（可选，装了才能嗅探网页视频）
-  a. 先把 LDM Mac.app 拖进应用程序并启动它（扩展需要 App 在运行）
-  b. Chrome 地址栏打开 chrome://extensions
-  c. 打开右上角「开发者模式」
-  d. 点「加载已解压的扩展程序」，选中旁边的 LDM-Mac-Chrome-Extension/chrome 文件夹
-  具体说明见 LDM-Mac-Chrome-Extension/README.md
+【4】下载完成通知
+  首次启动会申请通知权限，允许后下载完成会在通知中心提醒；
+  也可以在「设置 → 通用」里关掉。
 
-【5】下载 YouTube 需要代理
+【5】安装浏览器扩展（可选，装了才能嗅探网页视频）
+  先把 LDM Mac.app 拖进应用程序并启动它（扩展需要 App 在运行）。
+  · Chrome / Edge：地址栏输入 chrome://extensions → 打开右上角「开发者模式」
+    → 点「加载已解压的扩展程序」→ 选中 LDM-Mac-Browser-Extensions/chrome 文件夹
+  · Firefox：地址栏输入 about:debugging#/runtime/this-firefox
+    → 点「临时载入附加组件」→ 选中 LDM-Mac-Browser-Extensions/firefox/manifest.json
+  · 或者直接在 App 的「设置 → 浏览器扩展」里点「打开扩展文件夹」
+
+【6】下载 YouTube 需要代理
   设置里打开「使用代理」，填本机代理地址（如 http://127.0.0.1:7897）。
 
-界面语言：跟随系统，也可在「设置 → 通用」里手动选 简体中文 / 繁體中文 / English。
+界面语言：简体中文 / 繁體中文 / English / 日本語 / 한국어
+  默认跟随系统，也可在「设置 → 通用 → 界面语言」里手动切换。
 
 ---
 
@@ -52,9 +58,11 @@ LDM Mac — Lightning Download Manager (macOS)
 1. Drag "LDM Mac" into Applications.
 2. First launch blocked? Right-click the app → Open, or run:
    xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"
-3. Install dependencies: brew install aria2 yt-dlp ffmpeg
-4. Browser extension: launch the app, open chrome://extensions, enable Developer mode,
-   click "Load unpacked" and select LDM-Mac-Chrome-Extension/chrome.
+3. Dependencies: brew install aria2 yt-dlp ffmpeg
+4. Browser extensions (launch the app first):
+   Chrome: chrome://extensions → Developer mode → Load unpacked → LDM-Mac-Browser-Extensions/chrome
+   Firefox: about:debugging → Load Temporary Add-on → LDM-Mac-Browser-Extensions/firefox/manifest.json
+5. UI languages: English / 简体中文 / 繁體中文 / 日本語 / 한국어
 TXT
 
 echo "▸ 生成 DMG"

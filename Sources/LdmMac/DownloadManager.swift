@@ -17,6 +17,12 @@ final class DownloadManager: ObservableObject {
     @Published var proxyEnabled: Bool { didSet { save("proxyEnabled", proxyEnabled) } }
     @Published var proxyURL: String { didSet { save("proxyURL", proxyURL) } }
     @Published var videoQualityRaw: String { didSet { save("videoQuality", videoQualityRaw) } }
+    @Published var notifyOnComplete: Bool {
+        didSet {
+            save("notifyOnComplete", notifyOnComplete)
+            if notifyOnComplete { Notifier.shared.setupIfNeeded() }
+        }
+    }
 
     var videoQuality: VideoQuality {
         get { VideoQuality(rawValue: videoQualityRaw) ?? .best }
@@ -45,6 +51,9 @@ final class DownloadManager: ObservableObject {
         proxyEnabled = d.bool(forKey: "proxyEnabled")
         proxyURL = d.string(forKey: "proxyURL") ?? "http://127.0.0.1:7897"
         videoQualityRaw = d.string(forKey: "videoQuality") ?? VideoQuality.best.rawValue
+        notifyOnComplete = d.object(forKey: "notifyOnComplete") as? Bool ?? true
+
+        if notifyOnComplete { Notifier.shared.setupIfNeeded() }
 
         video.onUpdate = { [weak self] in self?.poll() }
         startEngine()
@@ -98,16 +107,20 @@ final class DownloadManager: ObservableObject {
     /// 扩展文件夹：优先取与 App 同级的 DMG 目录，其次取 App 包内置的副本
     var extensionFolder: String? {
         let bundled = Bundle.main.bundleURL
-        let candidates = [
-            bundled.deletingLastPathComponent().appendingPathComponent("LDM-Mac-Chrome-Extension").path,
-            (Bundle.main.resourceURL?.appendingPathComponent("LDM-Mac-Chrome-Extension").path) ?? ""
+        var candidates = [
+            bundled.deletingLastPathComponent().appendingPathComponent("LDM-Mac-Browser-Extensions").path,
+            bundled.deletingLastPathComponent().appendingPathComponent("LDM-Mac-Chrome-Extension").path
         ]
-        for c in candidates where !c.isEmpty {
-            if FileManager.default.fileExists(atPath: c + "/chrome/manifest.json") { return c }
+        if let res = Bundle.main.resourceURL?.appendingPathComponent("LDM-Mac-Browser-Extensions").path {
+            candidates.append(res)
         }
-        // 开发时直接在源码目录跑
-        let dev = FileManager.default.currentDirectoryPath + "/extension"
-        if FileManager.default.fileExists(atPath: dev + "/chrome/manifest.json") { return dev }
+        candidates.append(FileManager.default.currentDirectoryPath + "/extension")
+        candidates.append(FileManager.default.currentDirectoryPath + "/build/extensions")
+
+        for c in candidates where !c.isEmpty {
+            if FileManager.default.fileExists(atPath: c + "/chrome/manifest.json")
+                || FileManager.default.fileExists(atPath: c + "/firefox/manifest.json") { return c }
+        }
         return nil
     }
 
@@ -454,6 +467,11 @@ final class DownloadManager: ObservableObject {
             NSSound(named: "Glass")?.play()
             let extra = newlyFinished.count > 1 ? " " + L("toast.completedMany", newlyFinished.count) : ""
             showToast(L("toast.completed", first.name) + extra)
+
+            if notifyOnComplete {
+                Notifier.shared.notify(title: L("notify.title"),
+                                       body: L("notify.body", first.name, Fmt.bytes(first.totalBytes)))
+            }
         }
     }
 

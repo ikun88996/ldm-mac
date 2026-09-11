@@ -39,7 +39,7 @@ final class EngineHub {
 enum AppInfo {
     static let name = "LDM Mac"
     static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
     }
 }
 

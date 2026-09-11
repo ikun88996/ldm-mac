@@ -3,9 +3,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.1}"
+VERSION="${VERSION:-1.0.2}"
 APP_NAME="LDM Mac"
 BUNDLE="dist/${APP_NAME}.app"
+EXT_SRC="build/extensions"
 
 echo "▸ 编译 Swift 包（release）"
 swift build -c release
@@ -37,6 +38,8 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
         <string>en</string>
         <string>zh-Hans</string>
         <string>zh-Hant</string>
+        <string>ja</string>
+        <string>ko</string>
     </array>
     <key>NSHumanReadableCopyright</key>  <string>LDM Mac · 基于 aria2 / yt-dlp / ffmpeg</string>
 </dict>
@@ -47,11 +50,13 @@ if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
-# 把浏览器扩展一起放进 App 包里，用户从 App 设置里能直接打开这个文件夹
-if [ -f extension/chrome/manifest.json ]; then
-  rm -rf "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
-  cp -R extension "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension"
-  rm -f "$BUNDLE/Contents/Resources/LDM-Mac-Chrome-Extension/.DS_Store"
+# 把浏览器扩展（chrome + firefox 两套）放进 App 包，设置里能直接打开这个文件夹
+if [ -d "$EXT_SRC" ]; then
+  rm -rf "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions"
+  cp -R "$EXT_SRC" "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions"
+  find "$BUNDLE/Contents/Resources/LDM-Mac-Browser-Extensions" -name ".DS_Store" -delete
+else
+  echo "⚠️  未找到 $EXT_SRC，先跑 ./make_extension.sh 才能把扩展打进 App 包"
 fi
 
 echo "▸ 临时签名（ad-hoc）"

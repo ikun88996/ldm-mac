@@ -12,7 +12,11 @@
 const fs = require("fs");
 const path = require("path");
 
-const EXT = path.resolve(__dirname, "../extension/chrome");
+const EXT = path.resolve(__dirname, "../build/extensions/chrome");
+if (!fs.existsSync(path.join(EXT, "content.js"))) {
+  console.log("请先构建扩展：VERSION=1.0.2 ./make_extension.sh");
+  process.exit(0);
+}
 const JSDOM_PATH = process.env.JSDOM_PATH || "/tmp/ldm-ext-test/node_modules";
 const API = "http://127.0.0.1:47823";
 

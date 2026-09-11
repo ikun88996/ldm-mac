@@ -1,57 +1,89 @@
 #!/bin/bash
-# 构建 Chrome 扩展：生成图标、校验完整性、打 zip
+# 构建浏览器扩展：生成图标 → 组装 chrome / firefox 两套 → 校验 → 打 zip
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.1}"
-SRC="extension/chrome"
-ZIP="dist/LDM-Mac-Chrome-Extension-${VERSION}.zip"
+VERSION="${VERSION:-1.0.2}"
+SRC="extension"
+OUT="build/extensions"
 
 echo "▸ 生成扩展图标"
-mkdir -p "$SRC/icons" build
+mkdir -p "$SRC/shared/icons" build
 swift scripts/make_icon.swift build/icon1024.png >/dev/null
 for s in 16 32 48 128; do
-  sips -z "$s" "$s" build/icon1024.png --out "$SRC/icons/icon${s}.png" >/dev/null
+  sips -z "$s" "$s" build/icon1024.png --out "$SRC/shared/icons/icon${s}.png" >/dev/null
 done
 
-echo "▸ 校验 manifest 引用的文件是否齐全"
-python3 - "$SRC" "$VERSION" <<'PY'
+echo "▸ 组装 chrome / firefox 两套扩展（同一套代码 + 各自 manifest）"
+rm -rf "$OUT"
+for browser in chrome firefox; do
+  mkdir -p "$OUT/$browser"
+  cp -R "$SRC/shared/." "$OUT/$browser/"
+  cp "$SRC/manifests/$browser.json" "$OUT/$browser/manifest.json"
+  find "$OUT/$browser" -name ".DS_Store" -delete
+done
+
+echo "▸ 校验 manifest 与文件完整性"
+python3 - "$OUT" "$VERSION" <<'PY'
 import json, os, sys
-src, version = sys.argv[1], sys.argv[2]
-m = json.load(open(os.path.join(src, "manifest.json")))
-missing = []
-def check(p):
-    if not os.path.exists(os.path.join(src, p)):
-        missing.append(p)
-check(m["background"]["service_worker"])
-check(m["action"]["default_popup"])
-for p in m["icons"].values():
-    check(p)
-for c in m["content_scripts"]:
-    for p in c.get("js", []) + c.get("css", []):
+out, version = sys.argv[1], sys.argv[2]
+locales = ["en", "zh_CN", "zh_TW", "ja", "ko"]
+failed = False
+
+for browser in ("chrome", "firefox"):
+    root = os.path.join(out, browser)
+    m = json.load(open(os.path.join(root, "manifest.json")))
+    missing = []
+    def check(p):
+        if not os.path.exists(os.path.join(root, p)):
+            missing.append(p)
+    bg = m["background"]
+    check(bg.get("service_worker") or bg.get("scripts", ["?"])[0])
+    check(m["action"]["default_popup"])
+    for p in m["icons"].values():
         check(p)
-for loc in {m["default_locale"], "en", "zh_CN", "zh_TW"}:
-    check(os.path.join("_locales", loc, "messages.json"))
-if missing:
-    print("❌ 缺少文件:", missing)
-    sys.exit(1)
-if m["version"] != version:
-    print(f"❌ manifest.json 版本 {m['version']} 与构建版本 {version} 不一致")
-    sys.exit(1)
-print(f"  manifest 版本 {m['version']}，引用文件全部存在")
+    for c in m["content_scripts"]:
+        for p in c.get("js", []) + c.get("css", []):
+            check(p)
+    for loc in {m["default_locale"], *locales}:
+        check(os.path.join("_locales", loc, "messages.json"))
+
+    if missing:
+        print(f"  ❌ {browser}: 缺少文件 {missing}")
+        failed = True
+    if m["version"] != version:
+        print(f"  ❌ {browser}: manifest 版本 {m['version']} ≠ {version}")
+        failed = True
+    if browser == "firefox" and "service_worker" in bg:
+        print("  ❌ firefox: MV3 后台必须用 background.scripts（Firefox 不支持 service_worker）")
+        failed = True
+    if browser == "chrome" and "scripts" in bg:
+        print("  ❌ chrome: 应使用 background.service_worker")
+        failed = True
+    if browser == "firefox" and "gecko" not in m.get("browser_specific_settings", {}):
+        print("  ❌ firefox: 缺少 browser_specific_settings.gecko.id")
+        failed = True
+
+    if not missing and m["version"] == version:
+        print(f"  ✓ {browser}: v{m['version']}，后台={list(bg.keys())}，权限 {len(m['permissions'])} 项，语言 {len(locales)} 种")
+
+sys.exit(1 if failed else 0)
 PY
 
 echo "▸ JavaScript 语法检查"
-for f in "$SRC"/*.js; do
+for f in "$SRC"/shared/*.js; do
   node --check "$f"
   echo "  ok $(basename "$f")"
 done
 
 echo "▸ 打包 zip"
-mkdir -p dist
-rm -f "$ZIP"
-(cd extension && zip -qr "../$ZIP" chrome -x "*.DS_Store")
+DIST="$(pwd)/dist"
+mkdir -p "$DIST"
+rm -f "$DIST/LDM-Mac-Chrome-Extension-${VERSION}.zip" "$DIST/LDM-Mac-Firefox-Extension-${VERSION}.zip"
+(cd "$OUT" && zip -qr "$DIST/LDM-Mac-Chrome-Extension-${VERSION}.zip" chrome -x "*.DS_Store")
+(cd "$OUT" && zip -qr "$DIST/LDM-Mac-Firefox-Extension-${VERSION}.zip" firefox -x "*.DS_Store")
 
-echo "✅ 扩展打包完成：$ZIP"
-ls -lh "$ZIP" | awk '{print "   大小: " $5}'
-shasum -a 256 "$ZIP" | awk '{print "   SHA256: " $1}'
+echo "✅ 扩展打包完成"
+for f in "dist/LDM-Mac-Chrome-Extension-${VERSION}.zip" "dist/LDM-Mac-Firefox-Extension-${VERSION}.zip"; do
+  printf "   %s  %s  sha256=%s\n" "$f" "$(du -h "$f" | awk '{print $1}')" "$(shasum -a 256 "$f" | awk '{print $1}')"
+done

@@ -53,20 +53,21 @@ enum SelfTest {
     static func runI18nCheck() {
         let l10n = L10n.shared
         let keys = l10n.allKeys
+        let langs = L10n.allLangs
         print("== LDM Mac 多语言检查 ==")
-        print("语言数：3（zh-Hans / zh-Hant / en）")
+        print("语言数：\(langs.count)（\(langs.map { $0.rawValue }.joined(separator: " / "))）")
         print("文案 key 总数：\(keys.count)")
 
         let missing = l10n.missingTranslations()
         if missing.isEmpty {
-            print("✅ 三种语言全部齐全，无缺失")
+            print("✅ 所有语言全部齐全，无缺失")
         } else {
             print("❌ 缺失 \(missing.count) 条：\(missing.prefix(20).joined(separator: " | "))")
             exitCode = 1
         }
 
-        let samples = ["app.subtitle", "btn.download", "empty.title", "settings.extension", "status.active", "toast.addedFile"]
-        for lang in [AppLang.zhHans, AppLang.zhHant, AppLang.en] {
+        let samples = ["app.subtitle", "btn.download", "empty.title", "settings.extension", "status.active", "notify.title"]
+        for lang in langs {
             print("--- \(lang.rawValue) ---")
             for k in samples {
                 print("  \(k) = \(l10n.t(k, lang: lang))")

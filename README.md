@@ -1,8 +1,8 @@
 # LDM Mac
 
-> **Lightning Download Manager** —— macOS 原生高速多线程下载器，把 aria2、yt-dlp、ffmpeg 这三个命令行神器，装进一个开箱即用的中文图形界面，再配一个能嗅探网页视频的浏览器扩展。
+> **Lightning Download Manager** —— macOS 原生高速多线程下载器，把 aria2、yt-dlp、ffmpeg 这三个命令行神器，装进一个开箱即用的图形界面，再配一个能嗅探网页视频的浏览器扩展（Chrome / Firefox）。
 
-![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.1-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94-9cf)
+![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.2-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
 
 ![界面截图](docs/screenshot-main.png)
 
@@ -15,8 +15,9 @@
 - **SwiftUI 原生界面**，不是网页套壳，启动快、占用低
 - **多线程分段下载**：单文件最多 64 段并行，断点续传
 - **视频一键解析**：基于 yt-dlp，支持 YouTube、B站、X、TikTok、Reddit、Vimeo、Twitch 等 1800+ 站点，自动调用 ffmpeg 合并音视频轨输出 MP4
-- **浏览器扩展**：页面视频嗅探（含 HLS/m3u8 分片流）+ 右键「用 LDM 下载」，链接连同 Referer、Cookie 一键送进 App
-- **三语言界面**：简体中文 / 繁體中文 / English，跟随系统或手动切换
+- **浏览器扩展（Chrome / Firefox 双版本）**：页面视频嗅探（含 HLS/m3u8 分片流）+ 右键「用 LDM 下载」，链接连同 Referer、Cookie 一键送进 App
+- **下载完成系统通知**：通知中心提醒，可在设置里关掉
+- **五语言界面**：简体中文 / 繁體中文 / English / 日本語 / 한국어，跟随系统或手动切换
 - **大文件友好**：HuggingFace、镜像站的大文件走分段下载
 - **完全免费开源**，无广告、无捆绑、无登录、无遥测
 
@@ -24,7 +25,7 @@
 
 ### 方式一：下载安装包（推荐）
 
-到 [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.1.dmg`，打开后：
+到 [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.2.dmg`，打开后：
 
 1. 把「LDM Mac」拖进「Applications」
 2. 首次打开若被系统拦下（提示“无法验证开发者”或“已损坏”，因为个人开发者没有苹果公证）：
@@ -34,17 +35,17 @@
      xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"
      ```
 3. 装依赖：`brew install aria2 yt-dlp ffmpeg`（也可以在 App 的「设置 → 引擎依赖」里点一键安装）
-4. 想用网页视频嗅探的话，再装浏览器扩展（见下方「浏览器扩展」），扩展 zip 也在 Releases 里
+4. 想要网页视频嗅探，再装浏览器扩展（Chrome / Firefox 的 zip 都在 Releases 里，DMG 里也带了）
 
 ### 方式二：自己编译
 
 ```bash
 git clone https://github.com/xiaodong886/ldm-mac.git
 cd ldm-mac
-./make_icon.sh                    # 生成应用图标
-VERSION=1.0.1 ./make_app.sh       # 编译并打包 dist/LDM Mac.app
-VERSION=1.0.1 ./make_extension.sh # 打包 Chrome 扩展 zip
-VERSION=1.0.1 ./make_dmg.sh       # 打成 .dmg 安装包（内含 App + 扩展）
+./make_icon.sh                     # 生成应用图标
+VERSION=1.0.2 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
+VERSION=1.0.2 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
+VERSION=1.0.2 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
 ```
 
 只需要 Xcode Command Line Tools（`xcode-select --install`），**不需要**创建 Xcode 工程、不需要签名证书。
@@ -73,15 +74,25 @@ brew install aria2 yt-dlp ffmpeg
    | 多线程下载 | 强制分段下载（适合直链、镜像站、大模型文件） |
    | 视频解析 | 强制走 yt-dlp（适合链接长得不像视频页的站点） |
 3. 任务行右侧按钮：暂停 / 继续、打开文件、在访达中显示、复制链接、删除
-4. 「设置」里可以改：**界面语言**、下载目录、每任务连接数（1~64）、同时下载任务数、代理、视频画质（最高画质自动合并 MP4 / 1080p 及以下 / 仅音频 mp3）
+4. 「设置」里可以改：**界面语言**、**完成通知开关**、下载目录、每任务连接数（1~64）、同时下载任务数、代理、视频画质
 
 ### 界面语言
 
-简体中文 / 繁體中文 / English 三套完整文案，「设置 → 通用 → 界面语言」里切换（默认跟随系统），切换后立即生效、无需重启。
+五套完整文案：简体中文 / 繁體中文 / English / 日本語 / 한국어。「设置 → 通用 → 界面语言」里切换（默认跟随系统），切换后立即生效、无需重启。
 
 | English | 繁體中文 |
 |---|---|
 | ![English](docs/screenshot-en.png) | ![繁體中文](docs/screenshot-zh-hant.png) |
+
+| 日本語 | 한국어 |
+|---|---|
+| ![日本語](docs/screenshot-ja.png) | ![한국어](docs/screenshot-ko.png) |
+
+### 下载完成通知
+
+首次启动会申请通知权限，允许后每次下载完成都会在**通知中心**弹一条横幅（含文件名和大小），App 在前台时也会弹。不想被打扰就在「设置 → 通用」里关掉「下载完成后发送系统通知」。
+
+如果第一次误点了「不允许」，去 **系统设置 → 通知 → LDM Mac** 里重新打开即可。
 
 ### 关于代理
 
@@ -90,22 +101,31 @@ brew install aria2 yt-dlp ffmpeg
 
 ## 浏览器扩展
 
-支持 Chrome / Edge 等 Chromium 内核浏览器，功能：
+同一套代码，两套 manifest，随 Release 发布：`LDM-Mac-Chrome-Extension-1.0.2.zip` 与 `LDM-Mac-Firefox-Extension-1.0.2.zip`。
+
+功能：
 
 - **页面视频嗅探**：右下角浮出按钮显示检测到的媒体数量，点开是候选列表（HLS 分片流优先），逐项下载
-- **右键菜单**：链接 / 视频 / 选中文本 / 整页，四种上下文都能「用 LDM Mac 下载」
+- **右键菜单**：链接 / 视频 / 选中文本 / 整页，四种上下文都能「用 LDM 下载」
 - **整页交给 yt-dlp**：B站、YouTube 这类页面直接解析，拿到最高画质
 - **弹窗面板**：看 App 连接状态、任务进度，能暂停 / 继续 / 删除
 - **自动带上 Referer 与 Cookie**：很多站点的媒体直链需要登录态才能下，扩展会自动把当前站点的 Cookie 一起送给 App
 
 ### 安装步骤
 
-1. 先启动 **LDM Mac.app**（扩展需要 App 在运行）
-2. Chrome 打开 `chrome://extensions`（Edge 是 `edge://extensions`）
-3. 打开右上角 **开发者模式**
-4. 点 **加载已解压的扩展程序**，选中扩展文件夹里的 **`chrome`** 子目录
-   - 从 DMG 安装的：选 `LDM-Mac-Chrome-Extension/chrome`
-   - 也可以直接点 App 里「设置 → 浏览器扩展 → 打开扩展文件夹」
+先启动 **LDM Mac.app**（扩展需要 App 在运行），然后：
+
+| 浏览器 | 步骤 |
+|---|---|
+| Chrome / Edge | 打开 `chrome://extensions` → 开启右上角**开发者模式** → **加载已解压的扩展程序** → 选 `chrome` 子目录 |
+| Firefox | 打开 `about:debugging#/runtime/this-firefox` → **临时载入附加组件** → 选 `firefox/manifest.json` |
+
+扩展目录位置（DMG 里叫 `LDM-Mac-Browser-Extensions`）：
+
+- 从 DMG 安装：选 DMG 里的 `LDM-Mac-Browser-Extensions/chrome` 或 `.../firefox/manifest.json`
+- 已拖进应用程序：在 App 里点「设置 → 浏览器扩展 → 打开扩展文件夹」，会定位到 App 包内自带的那份
+
+> Firefox 说明：临时载入的扩展在重启浏览器后会失效，需要重新载入；要长期使用可以自行打包签名，或者用 [Developer Edition 的签名流程](https://extensionworkshop.com/documentation/publish/)。
 
 详细说明见 [`extension/README.md`](extension/README.md)。
 
@@ -142,7 +162,7 @@ App 二进制内置了无界面自检入口，方便验证内核与文案：
 # 视频解析测试（可用 LDM_TEST_PROXY 指定代理）
 LDM_TEST_PROXY=http://127.0.0.1:7897 ./.build/release/LdmMac --selftest "https://www.youtube.com/watch?v=xxxx" --video --dir /tmp/test
 
-# 三语言文案完整性检查
+# 五语言文案完整性检查
 ./.build/release/LdmMac --i18n-check
 
 # 扩展测试：纯函数 + 「扩展 → 本机接口 → aria2/yt-dlp」整条链路（需 App 在运行）
@@ -150,6 +170,9 @@ node scripts/test-extension.js
 
 # 扩展的 DOM 级测试（需要 jsdom）：媒体嗅探 → 浮层 → 点击下载真的进 App
 npm install --prefix /tmp/ldm-ext-test jsdom && node scripts/test-content-dom.js
+
+# Firefox 扩展用 Mozilla 官方 linter 校验
+npx web-ext lint --source-dir build/extensions/firefox
 ```
 
 实测数据（40MB 文件、16 线程、家用宽带）：**1.6 秒完成，峰值 34.9 MB/s**。
@@ -157,13 +180,14 @@ npm install --prefix /tmp/ldm-ext-test jsdom && node scripts/test-content-dom.js
 ## 技术实现
 
 ```
-SwiftUI 界面（三语言）
+SwiftUI 界面（五语言）
    └─ DownloadManager   设置持久化 · 任务列表合并 · 0.9s 轮询刷新 · 链接类型自动识别
         ├─ AriaEngine          aria2c 子进程 + JSON-RPC(127.0.0.1 随机端口 + token 鉴权)
         ├─ VideoEngine         yt-dlp 子进程 + stdout 进度解析 + ffmpeg 合并
+        ├─ Notifier            下载完成 → 通知中心（UNUserNotificationCenter）
         └─ LocalAPIServer      本机 HTTP 接口（浏览器扩展入口，只监听回环）
 
-Chrome 扩展 (MV3)
+浏览器扩展 (MV3，Chrome / Firefox 共用代码)
    ├─ background.js   右键菜单 · Cookie/Referer 收集 · 与 App 通信 · 角标
    ├─ content.js      媒体嗅探（DOM + performance + 页面源码）· 浮层 UI
    └─ popup.html/js   App 状态 · 任务进度 · 当前页媒体列表
@@ -174,7 +198,8 @@ Chrome 扩展 (MV3)
 - **内核用 aria2 而不是自己写**：分段、续传、重试、磁盘预分配、并发队列它都做得很成熟，自己写容易在边角情况下出错
 - **用子进程 + JSON-RPC 而不是链接 aria2 的库**：进程隔离，aria2 崩了不会带走 App；同时用 `--stop-with-process` 保证 App 退出时内核一起退出，不留孤儿进程
 - **不打包内核**：避免 GPL 传染与体积膨胀，用户自己 brew 装、自己升级
-- **多语言用内置字典而不是 .lproj**：不需要 Xcode 的本地化工程，`--i18n-check` 还能自动查出漏翻的字段
+- **多语言用内置字典而不是 .lproj**：不需要 Xcode 的本地化工程，`--i18n-check` 还能自动查出漏翻字段
+- **通知做了 bundle 判断**：`UNUserNotificationCenter` 在非 .app 进程里调用会崩，所以命令行自检永远不会触发通知
 
 ## 项目结构
 
@@ -182,17 +207,20 @@ Chrome 扩展 (MV3)
 Sources/LdmMac/
 ├── LdmMacApp.swift        App 入口、菜单、退出确认
 ├── Views.swift            界面：任务列表、进度条、设置面板
-├── Localization.swift     三语言文案表（81 条 key）
+├── Localization.swift     五语言文案表（84 条 key × 5 语言）
 ├── DownloadManager.swift  调度中枢：设置、轮询、任务合并、扩展接口处理
 ├── AriaEngine.swift       aria2c 子进程 + JSON-RPC 客户端
 ├── VideoEngine.swift      yt-dlp 子进程 + 进度解析
 ├── LocalAPIServer.swift   本机 HTTP 接口
+├── Notifier.swift         下载完成系统通知
 ├── Models.swift           数据模型与格式化
 └── SelfTest.swift         --selftest / --i18n-check 入口
 
-extension/chrome/          Chrome MV3 扩展（含 en / zh_CN / zh_TW 三语言）
-scripts/test-extension.js  扩展集成测试（Node）
-scripts/test-content-dom.js 扩展 DOM 级测试（jsdom）
+extension/
+├── shared/                两个浏览器共用的代码 + 5 种语言包
+├── manifests/chrome.json  MV3 + background.service_worker
+└── manifests/firefox.json MV3 + background.scripts（Firefox 不支持 service worker）
+scripts/test-extension.js / test-content-dom.js   扩展的两层自动化测试
 make_app.sh / make_dmg.sh / make_extension.sh / make_icon.sh
 ```
 
@@ -200,6 +228,12 @@ make_app.sh / make_dmg.sh / make_extension.sh / make_icon.sh
 
 **Q：提示“已损坏，无法打开”？**
 不是文件坏了，是系统对未公证应用的拦截。右键 → 打开，或执行 `xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"`。
+
+**Q：没有收到下载完成通知？**
+第一次启动会弹权限申请，如果误点了拒绝：**系统设置 → 通知 → LDM Mac → 允许通知**。也可以在 App 的「设置 → 通用」里确认开关是打开的。
+
+**Q：Firefox 扩展重启浏览器后就没了？**
+`about:debugging` 里的「临时载入」本来就是会话级的，重启需重新载入。想长期常驻需要签名打包。
 
 **Q：扩展里显示「LDM Mac 未运行」？**
 先启动 App；扩展只连本机 `127.0.0.1:47823`，如果 App 报「本机接口未启动」，多半是端口被别的程序占了，重启 App 会自动顺延到 47824。
@@ -224,12 +258,18 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 
 ## 更新日志
 
+### v1.0.2
+- ✨ 新增 **Firefox 扩展**（MV3），与 Chrome 扩展共用一套代码、各自 manifest（Firefox 用 `background.scripts`）
+- ✨ 新增**下载完成系统通知**（通知中心横幅，含文件名与大小；设置里可关）
+- ✨ 界面语言扩展到 **5 种**：新增 日本語、한국어（App 与扩展语言包同步）
+- ✨ 扩展目录重构为 `shared/` + `manifests/`，一套代码产出 Chrome / Firefox 两个包
+- ✨ Firefox 扩展通过 Mozilla 官方 `web-ext lint`：**0 error**（仅 2 条最低版本声明提示）
+- 📄 扩展新增 `data_collection_permissions` 声明（不收集任何数据），为将来上架 AMO 做准备
+
 ### v1.0.1
 - ✨ 新增 Chrome 浏览器扩展：页面视频嗅探（含 HLS）、右键菜单、任务弹窗，自动携带 Referer/Cookie
-- ✨ App 内置本机 HTTP 接口（`127.0.0.1:47823`），扩展与脚本都可通过它下发任务
-- ✨ 三语言界面：简体中文 / 繁體中文 / English，可跟随系统或手动切换
-- ✨ 设置面板新增「浏览器扩展」区（接口状态、一键打开扩展文件夹）
-- ✨ 新增 `--i18n-check` 文案完整性自检、扩展的 Node/jsdom 测试
+- ✨ App 内置本机 HTTP 接口（`127.0.0.1:47823`）
+- ✨ 三语言界面：简体中文 / 繁體中文 / English
 - 🐛 修复退出后残留孤儿 aria2c 进程的问题（改用 `--stop-with-process`）
 
 ### v1.0.0
@@ -237,24 +277,25 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 
 ## Roadmap
 
-- [ ] Firefox 扩展（MV3）
-- [ ] 下载完成系统通知（通知中心）
-- [ ] 更多语言（日本語 / 한국어）
 - [ ] Homebrew Cask 分发：`brew install --cask ldm-mac`
-- [ ] 应用公证（Developer ID）
+- [ ] 应用公证（Developer ID），免去首次打开手动放行
+- [ ] 边下边播（预览未完成的视频文件）
+- [ ] 任务限速与时段限制
 
 ## English
 
-**LDM Mac — a native macOS download manager** (Lightning Download Manager), built with SwiftUI, powered by aria2 (multi-threaded segmented download), yt-dlp + ffmpeg (video extraction, 1800+ sites) — plus a Chrome extension that sniffs page videos and sends links (with Referer & cookies) straight into the app.
+**LDM Mac — a native macOS download manager** (Lightning Download Manager), built with SwiftUI, powered by aria2 (multi-threaded segmented download), yt-dlp + ffmpeg (video extraction, 1800+ sites), plus **Chrome and Firefox extensions** that sniff page videos and send links (with Referer & cookies) into the app, and **Notification Center alerts** when a download finishes.
 
 ```bash
 brew install aria2 yt-dlp ffmpeg   # required runtime dependencies
 ```
 
-1. Download `LDM-Mac-1.0.1.dmg` from [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest), drag the app into Applications.
+1. Download `LDM-Mac-1.0.2.dmg` from [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest), drag the app into Applications.
 2. First launch blocked by Gatekeeper? Right-click → Open, or `xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"`.
-3. Optional: install the browser extension (`chrome://extensions` → Developer mode → Load unpacked → pick the `chrome` folder) and keep the app running — it listens on `http://127.0.0.1:47823`.
-4. UI available in English, Simplified and Traditional Chinese.
+3. Browser extension (keep the app running — it listens on `http://127.0.0.1:47823`):
+   - Chrome/Edge: `chrome://extensions` → Developer mode → Load unpacked → the `chrome` folder
+   - Firefox: `about:debugging` → Load Temporary Add-on → `firefox/manifest.json`
+4. UI available in **English, Simplified & Traditional Chinese, Japanese, Korean**.
 
 ## 致谢
 
