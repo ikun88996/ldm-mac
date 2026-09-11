@@ -60,7 +60,8 @@ struct DownloadTask: Identifiable, Equatable {
             "speed": speed,
             "connections": connections,
             "path": path,
-            "url": uri
+            "url": uri,
+            "message": message
         ]
     }
 }

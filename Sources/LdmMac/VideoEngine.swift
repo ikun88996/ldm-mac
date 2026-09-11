@@ -51,6 +51,11 @@ final class VideoEngine {
 
     static func findYtDlp() -> String? { AriaEngine.findBinary(named: "yt-dlp") }
 
+    /// 外部改写某个任务的状态说明（例如自动重试后把 yt-dlp 原文换成更好懂的提示）
+    func setMessage(id: String, _ message: String) {
+        mutate { $0[id]?.message = message }
+    }
+
     /// 把长链接缩成「域名/末段」，用于失败任务的可读标题
     static func shortURL(_ url: String) -> String {
         guard let u = URL(string: url), let host = u.host else { return url }

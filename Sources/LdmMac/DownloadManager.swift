@@ -530,6 +530,8 @@ final class DownloadManager: ObservableObject {
             guard let target = DownloadManager.recoverTarget(fromErrorMessage: e.message),
                   target != e.uri, !retriedURLs.contains(target) else { continue }
             retriedURLs.insert(target)
+            // 把这条「原始的失败任务」的说明换成更好懂的话，别让用户看到 yt-dlp 的原文以为白干了
+            video.setMessage(id: e.id, L("toast.linkRecovered"))
             showToast(L("toast.linkRecovered"))
             _ = add(target, mode: .video, quiet: true)
         }
