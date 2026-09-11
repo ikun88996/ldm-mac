@@ -1,0 +1,16 @@
+# 构建产物
+.build/
+dist/
+build/
+
+# macOS
+.DS_Store
+*.swp
+
+# Xcode（本工程不使用 Xcode 工程文件，留作兜底）
+*.xcuserstate
+xcuserdata/
+
+# 编辑器
+.vscode/
+.idea/
