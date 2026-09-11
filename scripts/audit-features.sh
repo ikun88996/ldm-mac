@@ -54,10 +54,10 @@ S=$(stat -f%z "$TMPDIR_DL/node-v20.11.0-darwin-arm64.tar.gz" 2>/dev/null || echo
 
 echo "=== T2 暂停 / 继续 ==="
 add '{"url":"https://npmmirror.com/mirrors/node/v22.9.0/node-v22.9.0-darwin-arm64.tar.gz","kind":"file"}' >/dev/null
-sleep 2
+sleep 0.6
 GID=$(findid v22.9.0)
 if [ -n "$GID" ]; then
-  act "$GID" pause >/dev/null; sleep 2
+  act "$GID" pause >/dev/null; sleep 1.5
   S1=$(tasksj | python3 -c "
 import json,sys
 m=[t for t in json.load(sys.stdin)['tasks'] if t['id']=='$GID']
@@ -67,8 +67,8 @@ print(m[0]['status'] if m else 'gone')")
 import json,sys
 m=[t for t in json.load(sys.stdin)['tasks'] if t['id']=='$GID']
 print(m[0]['status'] if m else 'gone')")
-  [ "$S1" = "paused" ] && ok "暂停生效（$S1）" || bad "暂停无效（$S1）"
-  case "$S2" in active|complete) ok "继续生效（$S2）";; *) bad "继续无效（$S2）";; esac
+  [ "$S1" = "paused" ] && ok "暂停生效（${S1}）" || bad "暂停无效（${S1}）"
+  case "$S2" in active|complete) ok "继续生效（${S2}）";; *) bad "继续无效（${S2}）";; esac
 else
   bad "没抓到任务"
 fi
@@ -83,7 +83,7 @@ ST=$(tasksj | python3 -c "
 import json,sys
 m=[t for t in json.load(sys.stdin)['tasks'] if t['id']=='$GID']
 print('GONE' if not m else m[0]['status'])")
-[ "$ST" = "GONE" ] && ok "删除后 4 秒仍未回来" || bad "删除后仍在（$ST）"
+[ "$ST" = "GONE" ] && ok "删除后 4 秒仍未回来" || bad "删除后仍在（${ST}）"
 
 echo "=== T4 B站视频（验证 ffmpeg 合并）==="
 add '{"url":"https://www.bilibili.com/video/BV1GJ411x7h7","kind":"video"}' >/dev/null
@@ -146,7 +146,7 @@ fi
 echo "=== 还原设置并重启 ==="
 if [ "$ORIG_DL" = "__none__" ]; then defaults delete $DOMAIN downloadDir 2>/dev/null
 else defaults write $DOMAIN downloadDir -string "$ORIG_DL"; fi
-restart_app && echo "  已还原（下载目录：$ORIG_DL）"
+restart_app && echo "  已还原（下载目录：${ORIG_DL}）"
 rm -rf "$TMPDIR_DL"
 
 echo

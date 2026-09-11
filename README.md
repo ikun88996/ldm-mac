@@ -2,7 +2,7 @@
 
 > **Lightning Download Manager** —— macOS 原生高速多线程下载器，把 aria2、yt-dlp、ffmpeg 这三个命令行神器，装进一个开箱即用的图形界面，再配一个能嗅探网页视频的浏览器扩展（Chrome / Firefox）。
 
-![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.7-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
+![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.8-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
 
 ![界面截图](docs/screenshot-main.png)
 
@@ -15,6 +15,7 @@
 - **SwiftUI 原生界面**，不是网页套壳，启动快、占用低
 - **多线程分段下载**：单文件最多 64 段并行，断点续传
 - **视频一键解析**：基于 yt-dlp，支持 YouTube、B站、X、TikTok、Reddit、Vimeo、Twitch 等 1800+ 站点，自动调用 ffmpeg 合并音视频轨输出 MP4
+- **抖音去水印**：把抖音 App 的分享文本（那串中文夹着 `v.douyin.com/xxx` 的整段文字）直接粘进来就行，自动解析并下载**无水印原片**；图集帖子会逐张下载图片（不依赖 yt-dlp、不用登录、不用浏览器 cookie）
 - **浏览器扩展（Chrome / Firefox 双版本）**：页面视频嗅探（含 HLS/m3u8 分片流）+ 右键「用 LDM 下载」，链接连同 Referer、Cookie 一键送进 App
 - **下载完成系统通知**：通知中心提醒，可在设置里关掉
 - **五语言界面**：简体中文 / 繁體中文 / English / 日本語 / 한국어，跟随系统或手动切换
@@ -25,7 +26,7 @@
 
 ### 方式一：下载安装包（推荐）
 
-到 [Releases](https://github.com/ikun88996/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.7.dmg`（版本号以 Releases 页面为准，用 `latest` 链接永远拿到最新版），打开后：
+到 [Releases](https://github.com/ikun88996/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.8.dmg`（版本号以 Releases 页面为准，用 `latest` 链接永远拿到最新版），打开后：
 
 1. 把「LDM Mac」拖进「Applications」
 2. 首次打开若被系统拦下（提示“无法验证开发者”或“已损坏”，因为个人开发者没有苹果公证）：
@@ -43,9 +44,9 @@
 git clone https://github.com/ikun88996/ldm-mac.git
 cd ldm-mac
 ./make_icon.sh                     # 生成应用图标
-VERSION=1.0.7 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
-VERSION=1.0.7 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
-VERSION=1.0.7 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
+VERSION=1.0.8 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
+VERSION=1.0.8 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
+VERSION=1.0.8 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
 ```
 
 只需要 Xcode Command Line Tools（`xcode-select --install`），**不需要**创建 Xcode 工程、不需要签名证书。
@@ -97,11 +98,12 @@ brew install aria2 yt-dlp ffmpeg
 ### 关于代理
 
 - **B站、微博、国内镜像站**：直连即可，不用开代理
+- **抖音**：内置去水印解析，直连即可（不走代理）
 - **YouTube、X 等**：需要在「设置 → 网络」里打开「使用代理」，填本机代理地址（如 `http://127.0.0.1:7897`），然后点「重启引擎」生效
 
 ## 浏览器扩展
 
-同一套代码，两套 manifest，随每个 Release 一起发布（文件名带版本号）：`LDM-Mac-Chrome-Extension-<版本>.zip` 与 `LDM-Mac-Firefox-Extension-<版本>.zip`。当前版本为 **1.0.7**。
+同一套代码，两套 manifest，随每个 Release 一起发布（文件名带版本号）：`LDM-Mac-Chrome-Extension-<版本>.zip` 与 `LDM-Mac-Firefox-Extension-<版本>.zip`。当前版本为 **1.0.8**。
 
 功能：
 
@@ -244,6 +246,9 @@ make_app.sh / make_dmg.sh / make_extension.sh / make_icon.sh
 **Q：微博短链（`t.cn/xxxx`）下不了，报 `Unsupported URL: passport.weibo.com/visitor/...`？**
 1.0.4 起已自动处理：短链里带的真实视频地址会被解包出来并自动重试，列表里最终会看到视频标题。如果仍然失败，说明这个地址可能真的要登录态——在浏览器扩展里把该站点的 Cookie 一并带上再试，或者把链接发我。
 
+**Q：抖音视频下不了，报 `Fresh cookies (not necessarily logged in) are needed`？**
+1.0.8 起抖音不走 yt-dlp，改由 App 内置解析：把分享文本整段（或短链）粘进来即可，会直接下到**无水印**原片。解析需要联网取 ttwid，若失败会提示并退回视频解析兜底，把链接发我即可排查。
+
 **Q：下载失败的任务去哪看？**
 失败的任务会**留在列表里**，状态标红「出错」，并在任务行下面写明失败原因。以前的版本会把「下到网页」的任务静默删掉，1.0.4 起不会再消失。
 
@@ -266,6 +271,15 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 有任务在下载时点关闭或退出，会弹确认框；退出会导致下载中断（重新添加同一链接可断点续传）。
 
 ## 更新日志
+
+### v1.0.8
+- ✨ **新增抖音解析：粘贴即下无水印原片**
+  - 支持抖音 App 的「分享文本」（一长串中文夹着 `v.douyin.com/xxx`，整段粘贴就行）以及短链 / 页面链接
+  - **不走 yt-dlp**：它的抖音解析器要先有浏览器 cookie，粘链接必然报 `Fresh cookies (not necessarily logged in) are needed`
+  - 做法：自建合法 cookie（`ttwid` 从官方注册端点取，其余是客户端指纹字段）→ 调官方详情接口 → 用 `video_id` 拼出**无水印**播放地址 → 交给 aria2 多线程下载（拿到的是无抖音号水印的原片，比 `download_addr` 那条带水印的小）
+  - 图集帖子自动逐张下载图片；解析失败会退回视频解析兜底并提示原因
+- 🧪 自检新增 `--douyin-resolve <链接或分享文本>`，可单独验证抖音解析链路
+- 🐛 修掉一个自检假死：入口没注册的新开关会去启动 GUI 导致进程挂死
 
 ### v1.0.7
 - 🐛 **修复「清除已完成」点了没反应**：删视频任务时只终止了 yt-dlp 进程，任务数据还留在引擎里，下一轮轮询又被读回列表 → 现在真的从引擎里删掉
@@ -335,7 +349,7 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 brew install aria2 yt-dlp ffmpeg   # required runtime dependencies
 ```
 
-1. Download `LDM-Mac-1.0.7.dmg` from [Releases](https://github.com/ikun88996/ldm-mac/releases/latest), drag the app into Applications.
+1. Download `LDM-Mac-1.0.8.dmg` from [Releases](https://github.com/ikun88996/ldm-mac/releases/latest), drag the app into Applications.
 2. First launch blocked by Gatekeeper? Right-click → Open, or `xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"`.
 3. Browser extension (keep the app running — it listens on `http://127.0.0.1:47823`):
    - Chrome/Edge: `chrome://extensions` → Developer mode → Load unpacked → the `chrome` folder

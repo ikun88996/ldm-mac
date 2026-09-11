@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-VERSION="${VERSION:-1.0.7}"
+VERSION="${VERSION:-1.0.8}"
 APP_NAME="LDM Mac"
 BUNDLE="dist/${APP_NAME}.app"
 EXT_SRC="build/extensions"

@@ -39,7 +39,7 @@ final class EngineHub {
 enum AppInfo {
     static let name = "LDM Mac"
     static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.7"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.8"
     }
 }
 
@@ -59,6 +59,16 @@ struct LdmMacApp: App {
         // 多语言完整性检查：LdmMac --i18n-check
         if CommandLine.arguments.contains("--i18n-check") {
             SelfTest.run(args: ["--i18n-check"])
+            exit(SelfTest.exitCode)
+        }
+        // 抖音解析自检：LdmMac --douyin-resolve <链接或分享文本>
+        if let idx = CommandLine.arguments.firstIndex(of: "--douyin-resolve") {
+            let rest = Array(CommandLine.arguments[(idx + 1)...])
+            guard !rest.isEmpty else {
+                print("用法：LdmMac --douyin-resolve <抖音链接或分享文本>")
+                exit(2)
+            }
+            SelfTest.run(args: ["--douyin-resolve", rest.joined(separator: " ")])
             exit(SelfTest.exitCode)
         }
     }

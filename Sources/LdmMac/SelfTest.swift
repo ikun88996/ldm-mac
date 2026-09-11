@@ -10,6 +10,10 @@ enum SelfTest {
             runI18nCheck()
             return
         }
+        if let i = args.firstIndex(of: "--douyin-resolve"), i + 1 < args.count {
+            runDouyinResolve(args[i + 1])
+            return
+        }
 
         var url = ""
         var dir = (NSTemporaryDirectory() as NSString).appendingPathComponent("ldm-selftest")
@@ -75,6 +79,64 @@ enum SelfTest {
             for k in samples {
                 print("  \(k) = \(l10n.t(k, lang: lang))")
             }
+        }
+    }
+
+    // MARK: - 抖音解析自检
+
+    private static func runDouyinResolve(_ input: String) {
+        setbuf(stdout, nil)      // 实时输出，卡住时能看到卡在哪一步
+        print("== 抖音解析自检 ==")
+        print("输入: \(input.prefix(80))\(input.count > 80 ? "…" : "")")
+
+        guard let link = DouyinResolver.extractLink(from: input) else {
+            print("❌ 没能从输入里认出抖音链接")
+            exitCode = 1
+            return
+        }
+        print("认出链接: \(link)")
+        guard DouyinResolver.isDouyin(link) else {
+            print("❌ 这不是抖音域名")
+            exitCode = 1
+            return
+        }
+        guard let item = DouyinResolver.resolve(link) else {
+            print("❌ 解析失败（接口没返回 aweme_detail）")
+            print("   接口返回开头: \(DouyinResolver.lastResponsePreview)")
+            print("   cookie 头长度: \(DouyinResolver.lastCookieHeader.count)")
+            exitCode = 1
+            return
+        }
+        print("✅ 解析成功")
+        print("   aweme_id : \(item.id)")
+        print("   标题     : \(item.title)")
+        print("   作者     : \(item.author)")
+        print("   时长     : \(item.durationMs / 1000) 秒")
+        print("   文件名   : \(DouyinResolver.fileName(item.title)).mp4")
+        if item.images.isEmpty {
+            print("   无水印地址: \(item.playURL.prefix(110))…")
+            // 顺便验证这个地址真能下（只取前 256KB 探路）
+            var req = URLRequest(url: URL(string: item.playURL)!)
+            req.setValue("https://www.douyin.com/", forHTTPHeaderField: "Referer")
+            req.setValue(item.cookieHeader, forHTTPHeaderField: "Cookie")
+            req.setValue("bytes=0-262143", forHTTPHeaderField: "Range")
+            let sem = DispatchSemaphore(value: 0)
+            var code = 0, size = 0, ctype = ""
+            URLSession.shared.dataTask(with: req) { data, resp, _ in
+                code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                size = data?.count ?? 0
+                ctype = (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? ""
+                sem.signal()
+            }.resume()
+            _ = sem.wait(timeout: .now() + 25)
+            if (200...206).contains(code) && size > 0 {
+                print("   ✅ 地址可用：HTTP \(code)，取到 \(size) 字节，类型 \(ctype)")
+            } else {
+                print("   ❌ 地址不可用：HTTP \(code)，\(size) 字节")
+                exitCode = 1
+            }
+        } else {
+            print("   图集共 \(item.images.count) 张，首张: \(item.images[0].prefix(90))…")
         }
     }
 

@@ -276,7 +276,8 @@ final class DownloadManager: ObservableObject {
     static let videoHosts = ["youtube.com", "youtu.be", "bilibili.com", "b23.tv", "x.com", "twitter.com",
                              "tiktok.com", "douyin.com", "reddit.com", "vimeo.com", "twitch.tv",
                              "instagram.com", "facebook.com", "weibo.com", "weibo.cn", "kuaishou.com",
-                             "v.qq.com", "youku.com", "iqiyi.com", "ixigua.com", "weibo.cn"]
+                             "v.qq.com", "youku.com", "iqiyi.com", "ixigua.com", "weibo.cn",
+                             "douyin.com", "iesdouyin.com", "tiktok.com"]
 
     /// 短链域名：这些地址本身不是视频页，但会 302 到视频页（微博的 t.cn 最常见）
     static let shortLinkHosts = ["t.cn", "dwz.cn", "url.cn", "suo.im", "sourl.cn", "xhslink.com", "v.douyin.com"]
@@ -330,6 +331,23 @@ final class DownloadManager: ObservableObject {
              quiet: Bool = false) -> String? {
         var input = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { lastError = "empty url"; return nil }
+
+        // 抖音（含 App 的「分享文本」和 v.douyin.com 短链）：自己解析出无水印地址，
+        // 交给 aria2 多线程下载。yt-dlp 的抖音解析器需要浏览器 cookie，粘链接的场景走不通。
+        if let dyLink = DouyinResolver.extractLink(from: rawInput),
+           DouyinResolver.isDouyin(dyLink),
+           !DownloadManager.looksLikeMedia(dyLink),
+           !dyLink.contains("/aweme/v1/play/") {
+            if !quiet { showToast(L("toast.douyinResolving")) }
+            if let item = DouyinResolver.resolve(dyLink, proxy: proxyEnabled ? proxyURL : nil) {
+                if let id = addDouyin(item, quiet: quiet) { return id }
+            } else {
+                lastError = "douyin resolve failed"
+                if !quiet { showToast(L("toast.douyinFailed")) }
+                // 解析失败就继续往下走，让 yt-dlp 兜底（它至少会说出失败原因）
+            }
+        }
+
         if !input.lowercased().hasPrefix("http") { input = "https://" + input }
 
         try? FileManager.default.createDirectory(atPath: downloadDir, withIntermediateDirectories: true)
@@ -404,6 +422,49 @@ final class DownloadManager: ObservableObject {
     }
 
     // MARK: - 任务操作
+
+    /// 抖音解析成功：无水印直链交给 aria2 多线程下载（图集则逐张下载）
+    private func addDouyin(_ item: DouyinResolver.Item, quiet: Bool) -> String? {
+        guard engineReady else {
+            lastError = engineError ?? "engine not ready"
+            if !quiet { showToast(L("toast.engineBusy")) }
+            return nil
+        }
+        let dir = downloadDir
+        let conn = maxConnections
+        let base = DouyinResolver.fileName(item.title)
+        var gids: [String] = []
+        let sem = DispatchSemaphore(value: 0)
+        pollQueue.async { [weak self] in
+            guard let self else { sem.signal(); return }
+            if item.images.isEmpty {
+                if let g = self.aria.add(uri: item.playURL, dir: dir, connections: conn,
+                                         referer: item.referer, cookies: item.cookieHeader,
+                                         outName: base + ".mp4") {
+                    gids.append(g)
+                }
+            } else {
+                for (i, img) in item.images.enumerated() {
+                    if let g = self.aria.add(uri: img, dir: dir, connections: 4,
+                                             referer: item.referer, cookies: item.cookieHeader,
+                                             outName: "\(base)_\(i + 1).jpg") {
+                        gids.append(g)
+                    }
+                }
+            }
+            if !gids.isEmpty {
+                DispatchQueue.main.async {
+                    for g in gids { self.ariaOrder.append(g) }
+                    if !quiet { self.showToast(L("toast.douyinDone", item.title)) }
+                    self.poll()
+                }
+            }
+            sem.signal()   // 在后台线程唤醒，避免与主线程互等
+        }
+        _ = sem.wait(timeout: .now() + 12)
+        if gids.isEmpty { lastError = "aria2 add failed (douyin)" }
+        return gids.first
+    }
 
     func pause(_ task: DownloadTask) {
         switch task.kind {
