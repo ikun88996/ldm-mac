@@ -43,7 +43,7 @@
 ## 开发
 
 ```bash
-VERSION=1.0.2 ./make_extension.sh        # 组装 chrome/ + firefox/ 两套并打 zip
+VERSION=1.0.3 ./make_extension.sh        # 组装 chrome/ + firefox/ 两套并打 zip
 node scripts/test-extension.js           # 纯函数 + 「扩展 → 本机接口 → aria2」全链路
 node scripts/test-content-dom.js         # jsdom 里的 DOM 级测试（嗅探 → 浮层 → 入库）
 npx web-ext lint --source-dir build/extensions/firefox   # Mozilla 官方校验

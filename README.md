@@ -25,7 +25,7 @@
 
 ### 方式一：下载安装包（推荐）
 
-到 [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.2.dmg`，打开后：
+到 [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest) 下载 `LDM-Mac-1.0.3.dmg`（版本号以 Releases 页面为准，用 `latest` 链接永远拿到最新版），打开后：
 
 1. 把「LDM Mac」拖进「Applications」
 2. 首次打开若被系统拦下（提示“无法验证开发者”或“已损坏”，因为个人开发者没有苹果公证）：
@@ -43,9 +43,9 @@
 git clone https://github.com/xiaodong886/ldm-mac.git
 cd ldm-mac
 ./make_icon.sh                     # 生成应用图标
-VERSION=1.0.2 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
-VERSION=1.0.2 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
-VERSION=1.0.2 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
+VERSION=1.0.3 ./make_extension.sh   # 打包 Chrome + Firefox 两套扩展
+VERSION=1.0.3 ./make_app.sh         # 编译并打包 dist/LDM Mac.app
+VERSION=1.0.3 ./make_dmg.sh         # 打成 .dmg 安装包（内含 App + 两套扩展）
 ```
 
 只需要 Xcode Command Line Tools（`xcode-select --install`），**不需要**创建 Xcode 工程、不需要签名证书。
@@ -101,7 +101,7 @@ brew install aria2 yt-dlp ffmpeg
 
 ## 浏览器扩展
 
-同一套代码，两套 manifest，随 Release 发布：`LDM-Mac-Chrome-Extension-1.0.2.zip` 与 `LDM-Mac-Firefox-Extension-1.0.2.zip`。
+同一套代码，两套 manifest，随每个 Release 一起发布（文件名带版本号）：`LDM-Mac-Chrome-Extension-<版本>.zip` 与 `LDM-Mac-Firefox-Extension-<版本>.zip`。当前版本为 **1.0.3**。
 
 功能：
 
@@ -300,7 +300,7 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 brew install aria2 yt-dlp ffmpeg   # required runtime dependencies
 ```
 
-1. Download `LDM-Mac-1.0.2.dmg` from [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest), drag the app into Applications.
+1. Download `LDM-Mac-1.0.3.dmg` from [Releases](https://github.com/xiaodong886/ldm-mac/releases/latest), drag the app into Applications.
 2. First launch blocked by Gatekeeper? Right-click → Open, or `xattr -dr com.apple.quarantine "/Applications/LDM Mac.app"`.
 3. Browser extension (keep the app running — it listens on `http://127.0.0.1:47823`):
    - Chrome/Edge: `chrome://extensions` → Developer mode → Load unpacked → the `chrome` folder
