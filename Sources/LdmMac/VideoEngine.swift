@@ -20,8 +20,34 @@ final class VideoEngine {
     private var jobs: [String: Job] = [:]
     private var order: [String] = []
     private var processes: [String: Process] = [:]
+    private var cookieFiles: [String: String] = [:]
     private let lock = NSLock()
     var onUpdate: (() -> Void)?
+
+    /// 把扩展送来的 Cookie 字符串写成 yt-dlp 能读的 Netscape 格式文件
+    static func writeCookieFile(_ cookies: String, for url: String) -> String? {
+        let host = URL(string: url)?.host ?? ""
+        var domain = host
+        if let dot = host.firstIndex(of: ".") { domain = String(host[dot...]) }   // 保留 .weibo.com 这种一级后缀
+        var lines = ["# Netscape HTTP Cookie File", "# 由 LDM Mac 临时生成，任务结束即删除"]
+        for pair in cookies.split(separator: ";") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2 else { continue }
+            let name = kv[0].trimmingCharacters(in: .whitespaces)
+            let value = kv[1].trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { continue }
+            lines.append("\(domain)\tTRUE\t/\tFALSE\t0\t\(name)\t\(value)")
+        }
+        guard lines.count > 2 else { return nil }
+        let path = NSTemporaryDirectory() + "ldm-cookies-\(UUID().uuidString).txt"
+        do {
+            try lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+            return path
+        } catch {
+            return nil
+        }
+    }
 
     static func findYtDlp() -> String? { AriaEngine.findBinary(named: "yt-dlp") }
 
@@ -40,7 +66,7 @@ final class VideoEngine {
 
     @discardableResult
     func start(uri: String, downloadDir: String, quality: VideoQuality,
-               proxy: String?) -> String? {
+               proxy: String? = nil, referer: String? = nil, cookies: String? = nil) -> String? {
         guard let ytdlp = VideoEngine.findYtDlp() else { return nil }
 
         let id = UUID().uuidString
@@ -56,6 +82,13 @@ final class VideoEngine {
             args += ["-f", "bv*[height<=1080]+ba/b[height<=1080]", "--merge-output-format", "mp4"]
         case .audioOnly:
             args += ["-f", "bestaudio/best", "-x", "--audio-format", "mp3"]
+        }
+        if let referer, !referer.isEmpty {
+            args += ["--add-headers", "Referer: \(referer)"]
+        }
+        if let cookies, !cookies.isEmpty, let cookiePath = VideoEngine.writeCookieFile(cookies, for: uri) {
+            args += ["--cookies", cookiePath]
+            cookieFiles[id] = cookiePath
         }
         if let proxy, !proxy.isEmpty { args += ["--proxy", proxy] }
         args.append(uri)
@@ -201,6 +234,9 @@ final class VideoEngine {
     }
 
     private func finish(id: String, code: Int32) {
+        if let cookiePath = cookieFiles.removeValue(forKey: id) {
+            try? FileManager.default.removeItem(atPath: cookiePath)
+        }
         mutate { jobs in
             guard var job = jobs[id] else { return }
             if job.status != .error {

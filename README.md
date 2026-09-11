@@ -2,7 +2,7 @@
 
 > **Lightning Download Manager** —— macOS 原生高速多线程下载器，把 aria2、yt-dlp、ffmpeg 这三个命令行神器，装进一个开箱即用的图形界面，再配一个能嗅探网页视频的浏览器扩展（Chrome / Firefox）。
 
-![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.2-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
+![platform](https://img.shields.io/badge/macOS-14%2B-blue) ![swift](https://img.shields.io/badge/Swift-5.9%2B-orange) ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-1.0.3-lightgrey) ![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20%E7%AE%80%E4%BD%93%20%7C%20%E7%B9%81%E9%AB%94%20%7C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%7C%20%ED%95%9C%EA%B5%AD%EC%96%B4-9cf)
 
 ![界面截图](docs/screenshot-main.png)
 
@@ -71,7 +71,7 @@ brew install aria2 yt-dlp ffmpeg
    | 模式 | 行为 |
    |---|---|
    | 自动识别 | 视频站点的链接走 yt-dlp 解析，其他链接走多线程下载 |
-   | 多线程下载 | 强制分段下载（适合直链、镜像站、大模型文件） |
+   | 多线程下载 | 强制分段下载（适合直链、镜像站、大模型文件）；若识别到是视频页面会自动改用视频解析并提示 |
    | 视频解析 | 强制走 yt-dlp（适合链接长得不像视频页的站点） |
 3. 任务行右侧按钮：暂停 / 继续、打开文件、在访达中显示、复制链接、删除
 4. 「设置」里可以改：**界面语言**、**完成通知开关**、下载目录、每任务连接数（1~64）、同时下载任务数、代理、视频画质
@@ -238,6 +238,9 @@ make_app.sh / make_dmg.sh / make_extension.sh / make_icon.sh
 **Q：扩展里显示「LDM Mac 未运行」？**
 先启动 App；扩展只连本机 `127.0.0.1:47823`，如果 App 报「本机接口未启动」，多半是端口被别的程序占了，重启 App 会自动顺延到 47824。
 
+**Q：微博视频下载失败，或者只下到一个叫 `visitor` 的奇怪文件？**
+这是 1.0.3 修掉的老问题：微博的页面链接被当普通文件交给 aria2，微博会把它跳转到访客登录页，于是只存下一个 9 KB 的 HTML（文件名叫 `visitor`）。升级到 1.0.3 后：多线程模式识别到视频页面会自动改用视频解析，已经下到网页的任务也会被自动删除并用 yt-dlp 重试。如果你还想要那个原视频，把链接重新粘一遍（用「视频解析」模式）即可。
+
 **Q：网页视频点下载后失败？**
 很多站点的媒体地址需要登录态或短时效签名。扩展会自动带上当前站点 Cookie；若是签名过期（返回 403），重新在页面上播放一下再点下载。
 
@@ -257,6 +260,13 @@ yt-dlp 本身不支持暂停恢复，只能停止后重新添加。多线程文�
 有任务在下载时点关闭或退出，会弹确认框；退出会导致下载中断（重新添加同一链接可断点续传）。
 
 ## 更新日志
+
+### v1.0.3
+- 🐛 **修复微博（及同类站点）视频下载失败**：页面链接被当成普通文件丢给 aria2，微博会把请求跳转到 `passport.weibo.com/visitor/visitor`，结果只下到一个名为 `visitor` 的 9 KB 登录页 HTML
+  - 「多线程下载」模式下识别到视频页面时，自动改用「视频解析」并提示
+  - 新增兜底：任务完成后检查文件内容，若下到的其实是网页（`<!DOCTYPE html>`），自动删除并改用 yt-dlp 重试；不是视频站则明确提示「这是网页不是文件」
+- ✨ 视频任务现在会把扩展送来的 **Referer 与 Cookie** 交给 yt-dlp（写成临时 Netscape Cookie 文件，任务结束即删除），需要登录态的微博/站点视频也能解析
+- ✨ 文案扩到 87 条 × 5 语言
 
 ### v1.0.2
 - ✨ 新增 **Firefox 扩展**（MV3），与 Chrome 扩展共用一套代码、各自 manifest（Firefox 用 `background.scripts`）

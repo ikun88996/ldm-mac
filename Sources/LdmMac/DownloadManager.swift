@@ -39,6 +39,8 @@ final class DownloadManager: ObservableObject {
     private var timer: Timer?
     private var toastWork: DispatchWorkItem?
     private var lastError: String = ""
+    /// 已经因为「下到网页」而重试过的链接，避免死循环
+    private var retriedURLs: Set<String> = []
 
     // MARK: - 生命周期
 
@@ -286,13 +288,19 @@ final class DownloadManager: ObservableObject {
 
         try? FileManager.default.createDirectory(atPath: downloadDir, withIntermediateDirectories: true)
 
+        /// 视频页面（B站/YouTube/微博这类），而不是媒体直链
+        let isVideoPage = DownloadManager.looksLikeVideo(input) && !DownloadManager.looksLikeMedia(input)
+
         let useVideo: Bool
         switch mode {
-        case .video: useVideo = true
-        case .file:  useVideo = false
+        case .video:
+            useVideo = true
+        case .file:
+            // 页面链接交给 aria2 只会下到一个网页（微博甚至会被跳转到访客登录页），自动改用视频解析
+            useVideo = isVideoPage
+            if useVideo && !quiet { showToast(L("toast.videoPageReroute")) }
         case .auto:
-            // 明显是媒体/压缩包直链的走多线程；视频页面走 yt-dlp
-            useVideo = DownloadManager.looksLikeVideo(input) && !DownloadManager.looksLikeMedia(input)
+            useVideo = isVideoPage
         }
 
         if useVideo {
@@ -302,7 +310,8 @@ final class DownloadManager: ObservableObject {
                 return nil
             }
             guard let id = video.start(uri: input, downloadDir: downloadDir, quality: videoQuality,
-                                       proxy: proxyEnabled ? proxyURL : nil) else {
+                                       proxy: proxyEnabled ? proxyURL : nil,
+                                       referer: referer, cookies: cookies) else {
                 lastError = "yt-dlp start failed"
                 return nil
             }
@@ -458,10 +467,18 @@ final class DownloadManager: ObservableObject {
         }
 
         let previousFinished = Set(tasks.filter { $0.isFinished }.map { $0.id })
-        let newlyFinished = out.filter { $0.isFinished && !previousFinished.contains($0.id) }
+        var newlyFinished = out.filter { $0.isFinished && !previousFinished.contains($0.id) }
+
+        // 揪出「下到的其实是网页」的假成功（微博页面链接被跳转到访客登录页就是这么来的）
+        let bogus = newlyFinished.filter { isBogusWebPage($0) }
+        if !bogus.isEmpty {
+            newlyFinished.removeAll { t in bogus.contains { $0.id == t.id } }
+        }
 
         tasks = out
         globalSpeed = speed + videoJobs.filter { $0.status == .active }.reduce(0) { $0 + $1.speed }
+
+        for b in bogus { recoverFromWebPage(b) }
 
         if let first = newlyFinished.first {
             NSSound(named: "Glass")?.play()
@@ -472,6 +489,37 @@ final class DownloadManager: ObservableObject {
                 Notifier.shared.notify(title: L("notify.title"),
                                        body: L("notify.body", first.name, Fmt.bytes(first.totalBytes)))
             }
+        }
+    }
+
+    /// 内容是 HTML 的「文件」任务 —— 基本可以断定是把网页当文件下了
+    private func isBogusWebPage(_ task: DownloadTask) -> Bool {
+        guard task.kind == .file, task.status == .complete, !task.path.isEmpty else { return false }
+
+        // 用户明确要下文档时不动它
+        let urlPath = task.uri.lowercased().split(separator: "?").first.map(String.init) ?? ""
+        let docExts = [".html", ".htm", ".xhtml", ".txt", ".json", ".xml", ".md", ".csv", ".srt", ".vtt"]
+        if docExts.contains(where: { urlPath.hasSuffix($0) }) { return false }
+
+        guard let fh = FileHandle(forReadingAtPath: task.path) else { return false }
+        defer { try? fh.close() }
+        let data = fh.readData(ofLength: 1024)
+        guard !data.isEmpty else { return false }
+        let head = String(decoding: data, as: UTF8.self).lowercased()
+        return head.contains("<!doctype html") || head.contains("<html")
+    }
+
+    /// 删掉误下的网页文件，能识别的就改用 yt-dlp 重试
+    private func recoverFromWebPage(_ task: DownloadTask) {
+        if !task.path.isEmpty { try? FileManager.default.removeItem(atPath: task.path) }
+        remove(task)
+
+        if DownloadManager.looksLikeVideo(task.uri), !retriedURLs.contains(task.uri) {
+            retriedURLs.insert(task.uri)
+            showToast(L("toast.pageRetryVideo"))
+            _ = add(task.uri, mode: .video, quiet: true)
+        } else {
+            showToast(L("toast.pageNotFile"))
         }
     }
 

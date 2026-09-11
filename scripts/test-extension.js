@@ -16,7 +16,7 @@ const vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
 const EXT = path.join(ROOT, "build/extensions/chrome");
 if (!fs.existsSync(path.join(EXT, "background.js"))) {
-  console.log("请先构建扩展：VERSION=1.0.2 ./make_extension.sh");
+  console.log("请先构建扩展：VERSION=1.0.3 ./make_extension.sh");
   process.exit(0);
 }
 const TEST_URL = (() => {
